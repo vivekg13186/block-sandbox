@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Plus,
   Play,
   Pencil,
@@ -24,7 +23,7 @@ import { CRON_PRESETS, isValidCron, nextFire } from "../scheduler/cron";
 import { runSchedule } from "../scheduler/runner";
 import { ConfirmDialog } from "../components/Dialog";
 
-export default function Scheduler({ onClose }: { onClose: () => void }) {
+export default function Scheduler(_props: { onClose: () => void }) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [envStore, setEnvStore] = useState<EnvStore>({ active: "", environments: [] });
@@ -62,9 +61,6 @@ export default function Scheduler({ onClose }: { onClose: () => void }) {
   return (
     <div className="scheduler">
       <header className="editor-head">
-        <button className="icon-btn" title="Close" onClick={onClose}>
-          <ArrowLeft size={18} />
-        </button>
         <h2 className="editor-title">Scheduler</h2>
         <button className="btn primary" style={{ marginLeft: "auto" }} onClick={() => setEditing(newSchedule())}>
           <Plus size={16} /> New schedule

@@ -1,0 +1,100 @@
+{
+  "format": "block-sandbox.module",
+  "version": 1,
+  "module": {
+    "id": "cad8b710-0d50-4f59-bd47-32f402fcd3f1",
+    "name": "Confluence Get Page by Title",
+    "description": "Find a page by title (+ optional space) via GET /rest/api/content.",
+    "kind": "script",
+    "folder": "Confluence",
+    "requirements": [
+      "requests"
+    ],
+    "inputs": [
+      {
+        "id": "baseurl",
+        "name": "base_url",
+        "type": "string",
+        "description": "wiki base, e.g. https://your-org.atlassian.net/wiki"
+      },
+      {
+        "id": "email",
+        "name": "email",
+        "type": "string",
+        "description": "Atlassian account email"
+      },
+      {
+        "id": "apitoken",
+        "name": "api_token",
+        "type": "string",
+        "description": "API token (used as bearer token)"
+      },
+      {
+        "id": "spacekey",
+        "name": "space_key",
+        "type": "string",
+        "description": "optional space key"
+      },
+      {
+        "id": "title",
+        "name": "title",
+        "type": "string",
+        "description": "page title"
+      },
+      {
+        "id": "expand",
+        "name": "expand",
+        "type": "string",
+        "description": "default body.storage,version"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "id",
+        "name": "id",
+        "type": "string",
+        "description": ""
+      },
+      {
+        "id": "title",
+        "name": "title",
+        "type": "string",
+        "description": ""
+      },
+      {
+        "id": "body",
+        "name": "body",
+        "type": "string",
+        "description": ""
+      },
+      {
+        "id": "version",
+        "name": "version",
+        "type": "string",
+        "description": ""
+      },
+      {
+        "id": "status",
+        "name": "status",
+        "type": "string",
+        "description": ""
+      },
+      {
+        "id": "url",
+        "name": "url",
+        "type": "string",
+        "description": ""
+      },
+      {
+        "id": "found",
+        "name": "found",
+        "type": "string",
+        "description": ""
+      }
+    ],
+    "workspace": null,
+    "script": "import requests\ntry:\n    import urllib3\n    urllib3.disable_warnings()\nexcept Exception:\n    pass\n\nTIMEOUT = 30\n\nclass NodeError(Exception):\n    pass\n\ndef _client():\n    base = str(base_url or \"\").strip().rstrip(\"/\")\n    em = str(email or \"\").strip()\n    token = str(api_token or \"\").strip()\n    if not base:\n        raise NodeError(\"base_url is required (e.g. https://your-org.atlassian.net/wiki)\")\n    if not em or not token:\n        raise NodeError(\"email and api_token are required\")\n    sess = requests.Session()\n    sess.verify = False\n    sess.headers.update({\n        \"Authorization\": \"Bearer \" + token,\n        \"Accept\": \"application/json\",\n        \"Content-Type\": \"application/json\",\n    })\n    return sess, base\n\ndef _check(resp):\n    if not resp.ok:\n        detail = \"\"\n        try:\n            j = resp.json()\n            detail = j.get(\"message\") or str(j)\n        except Exception:\n            detail = (resp.text or \"\")[:300]\n        raise NodeError(\"Confluence API %s: %s\" % (resp.status_code, detail))\n    return resp\n\ndef _page_out(base, page):\n    links = page.get(\"_links\", {}) or {}\n    webui = links.get(\"webui\", \"\")\n    site = links.get(\"base\") or base.split(\"/wiki\")[0]\n    body_v = (((page.get(\"body\") or {}).get(\"storage\") or {}).get(\"value\"))\n    return {\n        \"id\": page.get(\"id\"),\n        \"title\": page.get(\"title\"),\n        \"body\": body_v,\n        \"version\": ((page.get(\"version\") or {}).get(\"number\")),\n        \"status\": page.get(\"status\"),\n        \"url\": (site + webui) if webui else \"\",\n    }\n\ns, base = _client()\nexp = str(expand or \"\").strip() or \"body.storage,version\"\nparams = {\"title\": str(title).strip(), \"expand\": exp}\nif str(space_key).strip():\n    params[\"spaceKey\"] = str(space_key).strip()\nr = _check(s.get(base + \"/rest/api/content\", params=params, timeout=TIMEOUT))\nresults = r.json().get(\"results\") or []\nif not results:\n    id = None\n    title = None\n    body = None\n    version = None\n    status = None\n    url = \"\"\n    found = False\nelse:\n    out = _page_out(base, results[0])\n    id = out[\"id\"]\n    title = out[\"title\"]\n    body = out[\"body\"]\n    version = out[\"version\"]\n    status = out[\"status\"]\n    url = out[\"url\"]\n    found = True\n",
+    "createdAt": "2026-06-29T10:22:25.008657",
+    "updatedAt": "2026-06-29T10:22:25.008657"
+  }
+}

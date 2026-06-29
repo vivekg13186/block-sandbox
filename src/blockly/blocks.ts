@@ -662,7 +662,6 @@ export function buildToolbox(current: Module, all: Module[]): object {
         colour: "160",
         contents: [
           { kind: "block", type: "text" },
-          { kind: "block", type: "text_multiline" },
           { kind: "block", type: "text_join" },
           {
             kind: "block",

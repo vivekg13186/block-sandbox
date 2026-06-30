@@ -20,7 +20,7 @@ import {
 } from "../storage/schedules";
 import { loadEnvStore, type EnvStore } from "../storage/env";
 import { CRON_PRESETS, isValidCron, nextFire } from "../scheduler/cron";
-import { runSchedule } from "../scheduler/runner";
+import { apiSend } from "../api";
 import { ConfirmDialog } from "../components/Dialog";
 
 export default function Scheduler(_props: { onClose: () => void }) {
@@ -46,7 +46,7 @@ export default function Scheduler(_props: { onClose: () => void }) {
   const runNow = async (s: Schedule) => {
     setBusy(s.id);
     try {
-      await runSchedule(s, modules);
+      await apiSend("POST", `/schedules/${s.id}/run`);
       await refresh();
     } finally {
       setBusy("");

@@ -1,0 +1,54 @@
+{
+  "id": "781bc439-7516-47c4-bbd6-fbd207a893db",
+  "name": "Confluence Delete Page",
+  "description": "Delete a page (DELETE /rest/api/content/{id}).",
+  "kind": "script",
+  "folder": "Confluence",
+  "requirements": [
+    "requests"
+  ],
+  "inputs": [
+    {
+      "id": "baseurl",
+      "name": "base_url",
+      "type": "string",
+      "description": "wiki base, e.g. https://your-org.atlassian.net/wiki"
+    },
+    {
+      "id": "email",
+      "name": "email",
+      "type": "string",
+      "description": "Atlassian account email"
+    },
+    {
+      "id": "apitoken",
+      "name": "api_token",
+      "type": "string",
+      "description": "API token (used as bearer token)"
+    },
+    {
+      "id": "pageid",
+      "name": "page_id",
+      "type": "string",
+      "description": "page id"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "deleted",
+      "name": "deleted",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "id": "id",
+      "name": "id",
+      "type": "string",
+      "description": ""
+    }
+  ],
+  "workspace": null,
+  "script": "import requests\ntry:\n    import urllib3\n    urllib3.disable_warnings()\nexcept Exception:\n    pass\n\nTIMEOUT = 30\n\nclass NodeError(Exception):\n    pass\n\ndef _client():\n    base = str(base_url or \"\").strip().rstrip(\"/\")\n    em = str(email or \"\").strip()\n    token = str(api_token or \"\").strip()\n    if not base:\n        raise NodeError(\"base_url is required (e.g. https://your-org.atlassian.net/wiki)\")\n    if not em or not token:\n        raise NodeError(\"email and api_token are required\")\n    sess = requests.Session()\n    sess.verify = False\n    sess.headers.update({\n        \"Authorization\": \"Bearer \" + token,\n        \"Accept\": \"application/json\",\n        \"Content-Type\": \"application/json\",\n    })\n    return sess, base\n\ndef _check(resp):\n    if not resp.ok:\n        detail = \"\"\n        try:\n            j = resp.json()\n            detail = j.get(\"message\") or str(j)\n        except Exception:\n            detail = (resp.text or \"\")[:300]\n        raise NodeError(\"Confluence API %s: %s\" % (resp.status_code, detail))\n    return resp\n\ndef _page_out(base, page):\n    links = page.get(\"_links\", {}) or {}\n    webui = links.get(\"webui\", \"\")\n    site = links.get(\"base\") or base.split(\"/wiki\")[0]\n    body_v = (((page.get(\"body\") or {}).get(\"storage\") or {}).get(\"value\"))\n    return {\n        \"id\": page.get(\"id\"),\n        \"title\": page.get(\"title\"),\n        \"body\": body_v,\n        \"version\": ((page.get(\"version\") or {}).get(\"number\")),\n        \"status\": page.get(\"status\"),\n        \"url\": (site + webui) if webui else \"\",\n    }\n\ns, base = _client()\npid = str(page_id).strip()\nif not pid:\n    raise NodeError(\"page_id is required\")\n_check(s.delete(base + \"/rest/api/content/\" + pid, timeout=TIMEOUT))\ndeleted = True\nid = pid\n",
+  "createdAt": "2026-06-29T10:22:25.008657",
+  "updatedAt": "2026-06-30T08:02:59.637Z"
+}

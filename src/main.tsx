@@ -1,7 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import AppShell from "./AppShell";
-import SchedulerHost from "./scheduler/SchedulerHost";
 import "./index.css";
 
 // Disable browser autofill / autosuggest / spellcheck on all text inputs,
@@ -31,7 +30,6 @@ new MutationObserver((mutations) => {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <SchedulerHost />
     <AppShell />
   </React.StrictMode>
 );

@@ -29,6 +29,9 @@ export interface Module {
   workspace: object | null;
   /** Raw Python body for script modules. */
   script: string;
+  /** Cached full runnable program (generated on save) so the server can run
+   *  this module headlessly for scheduled jobs. */
+  program?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +85,7 @@ export function normalizeModule(m: Partial<Module> & { id: string; name: string 
     outputs: m.outputs ?? [],
     workspace: m.workspace ?? null,
     script: m.script ?? "",
+    program: m.program,
     createdAt: m.createdAt ?? now,
     updatedAt: m.updatedAt ?? now,
   };

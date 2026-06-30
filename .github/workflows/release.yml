@@ -1,0 +1,74 @@
+name: Release
+
+# Builds the UI, bundles it with the Python server, and produces a single
+# distributable zip. Trigger by pushing a version tag (e.g.
+# `git tag v1.0.0 && git push --tags`) or manually from the Actions tab.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build UI
+        run: |
+          npm ci
+          npm run build
+
+      - name: Stage distributable
+        run: |
+          DIST="block-sandbox"
+          mkdir -p "$DIST/static"
+          cp -r dist/* "$DIST/static/"
+          cp server/app.py server/run.py server/requirements.txt "$DIST/"
+          # Optional sample modules so the app isn't empty on first launch.
+          if [ -d "samples modules" ]; then
+            mkdir -p "$DIST/samples"
+            cp -r "samples modules/." "$DIST/samples/"
+          fi
+          cat > "$DIST/README.txt" <<'EOF'
+          Block Sandbox (web server)
+
+          Requirements: Python 3.10+
+
+            pip install -r requirements.txt
+            python run.py            # then open http://127.0.0.1:8000
+
+          Data (modules / environments / schedules / venv) is stored in ./data.
+          The Run feature executes Python with the server's privileges, so keep
+          it on localhost / a trusted network.
+          EOF
+
+      - name: Zip
+        run: |
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          zip -r "block-sandbox-${VERSION}.zip" block-sandbox
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: block-sandbox-zip
+          path: block-sandbox-*.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: "Block Sandbox ${{ github.ref_name }}"
+          files: block-sandbox-*.zip

@@ -1,5 +1,4 @@
-// Import / export modules as JSON files. Uses Tauri dialogs + Rust file
-// commands in the desktop app, and Blob download / file input in a browser.
+// Import / export modules as JSON files using browser download / file input.
 
 import type { Module } from "../types/module";
 import { normalizeModule } from "../types/module";
@@ -11,10 +10,6 @@ interface ExportEnvelope {
   format: typeof FORMAT_TAG;
   version: 1;
   module: Module;
-}
-
-function inTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 function serialize(m: Module): string {
@@ -42,20 +37,6 @@ function safeFileName(name: string): string {
 export async function exportModule(m: Module): Promise<boolean> {
   const text = serialize(m);
   const fileName = `${safeFileName(m.name)}.json`;
-
-  if (inTauri()) {
-    const { save } = await import("@tauri-apps/plugin-dialog");
-    const path = await save({
-      defaultPath: fileName,
-      filters: [{ name: "Module", extensions: ["json"] }],
-    });
-    if (!path) return false;
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("write_text_file_abs", { path, contents: text });
-    return true;
-  }
-
-  // Browser fallback: trigger a download.
   const blob = new Blob([text], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -66,25 +47,9 @@ export async function exportModule(m: Module): Promise<boolean> {
   return true;
 }
 
-/** Export several modules at once into a chosen directory. */
+/** Export several modules at once (one download each). */
 export async function exportModules(modules: Module[]): Promise<boolean> {
   if (modules.length === 0) return false;
-
-  if (inTauri()) {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const dir = await open({ directory: true, multiple: false });
-    if (!dir || typeof dir !== "string") return false;
-    const { invoke } = await import("@tauri-apps/api/core");
-    for (const m of modules) {
-      await invoke("write_text_file_abs", {
-        path: `${dir}/${safeFileName(m.name)}.json`,
-        contents: serialize(m),
-      });
-    }
-    return true;
-  }
-
-  // Browser fallback: download each file.
   for (const m of modules) {
     await exportModule(m);
   }
@@ -95,28 +60,6 @@ export async function exportModules(modules: Module[]): Promise<boolean> {
 
 /** Import one or more modules via a file picker. Returns the new module ids. */
 export async function importModulesViaPicker(): Promise<string[]> {
-  if (inTauri()) {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({
-      multiple: true,
-      filters: [{ name: "Module", extensions: ["json"] }],
-    });
-    if (!picked) return [];
-    const paths = Array.isArray(picked) ? picked : [picked];
-    const { invoke } = await import("@tauri-apps/api/core");
-    const ids: string[] = [];
-    for (const path of paths) {
-      try {
-        const text = await invoke<string>("read_text_file_abs", { path });
-        ids.push(await importModuleFromText(text));
-      } catch (e) {
-        console.error("Import failed for", path, e);
-      }
-    }
-    return ids;
-  }
-
-  // Browser fallback: hidden multi-file input.
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";

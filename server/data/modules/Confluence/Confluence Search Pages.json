@@ -1,0 +1,72 @@
+{
+  "id": "40e05860-ff7d-452a-8ff3-4a2930bca37b",
+  "name": "Confluence Search Pages",
+  "description": "Search pages by CQL, or by text (+ optional space). GET /rest/api/content/search.",
+  "kind": "script",
+  "folder": "Confluence",
+  "requirements": [
+    "requests"
+  ],
+  "inputs": [
+    {
+      "id": "baseurl",
+      "name": "base_url",
+      "type": "string",
+      "description": "wiki base, e.g. https://your-org.atlassian.net/wiki"
+    },
+    {
+      "id": "email",
+      "name": "email",
+      "type": "string",
+      "description": "Atlassian account email"
+    },
+    {
+      "id": "apitoken",
+      "name": "api_token",
+      "type": "string",
+      "description": "API token (used as bearer token)"
+    },
+    {
+      "id": "cql",
+      "name": "cql",
+      "type": "string",
+      "description": "raw CQL (overrides text/space)"
+    },
+    {
+      "id": "text",
+      "name": "text",
+      "type": "string",
+      "description": "free-text query"
+    },
+    {
+      "id": "spacekey",
+      "name": "space_key",
+      "type": "string",
+      "description": "optional space key"
+    },
+    {
+      "id": "limit",
+      "name": "limit",
+      "type": "number",
+      "description": "max results (default 25)"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "results",
+      "name": "results",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "id": "count",
+      "name": "count",
+      "type": "string",
+      "description": ""
+    }
+  ],
+  "workspace": null,
+  "script": "import requests\ntry:\n    import urllib3\n    urllib3.disable_warnings()\nexcept Exception:\n    pass\n\nTIMEOUT = 30\n\nclass NodeError(Exception):\n    pass\n\ndef _client():\n    base = str(base_url or \"\").strip().rstrip(\"/\")\n    em = str(email or \"\").strip()\n    token = str(api_token or \"\").strip()\n    if not base:\n        raise NodeError(\"base_url is required (e.g. https://your-org.atlassian.net/wiki)\")\n    if not em or not token:\n        raise NodeError(\"email and api_token are required\")\n    sess = requests.Session()\n    sess.verify = False\n    sess.headers.update({\n        \"Authorization\": \"Bearer \" + token,\n        \"Accept\": \"application/json\",\n        \"Content-Type\": \"application/json\",\n    })\n    return sess, base\n\ndef _check(resp):\n    if not resp.ok:\n        detail = \"\"\n        try:\n            j = resp.json()\n            detail = j.get(\"message\") or str(j)\n        except Exception:\n            detail = (resp.text or \"\")[:300]\n        raise NodeError(\"Confluence API %s: %s\" % (resp.status_code, detail))\n    return resp\n\ndef _page_out(base, page):\n    links = page.get(\"_links\", {}) or {}\n    webui = links.get(\"webui\", \"\")\n    site = links.get(\"base\") or base.split(\"/wiki\")[0]\n    body_v = (((page.get(\"body\") or {}).get(\"storage\") or {}).get(\"value\"))\n    return {\n        \"id\": page.get(\"id\"),\n        \"title\": page.get(\"title\"),\n        \"body\": body_v,\n        \"version\": ((page.get(\"version\") or {}).get(\"number\")),\n        \"status\": page.get(\"status\"),\n        \"url\": (site + webui) if webui else \"\",\n    }\n\ns, base = _client()\nq = str(cql).strip()\nif not q:\n    parts = [\"type=page\"]\n    if str(space_key).strip():\n        parts.append('space=\"%s\"' % str(space_key).strip())\n    if str(text).strip():\n        safe = str(text).strip().replace('\"', '\\\\\"')\n        parts.append('text~\"%s\"' % safe)\n    q = \" AND \".join(parts)\ntry:\n    lim = int(limit)\nexcept Exception:\n    lim = 25\nr = _check(s.get(base + \"/rest/api/content/search\", params={\"cql\": q, \"limit\": lim}, timeout=TIMEOUT))\nresults = []\nfor p in (r.json().get(\"results\") or []):\n    links = p.get(\"_links\", {}) or {}\n    results.append({\"id\": p.get(\"id\"), \"title\": p.get(\"title\"), \"type\": p.get(\"type\"), \"url\": (links.get(\"webui\") or \"\")})\ncount = len(results)\n",
+  "createdAt": "2026-06-29T10:22:25.008657",
+  "updatedAt": "2026-06-30T08:02:59.631Z"
+}

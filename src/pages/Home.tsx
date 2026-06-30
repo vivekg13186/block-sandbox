@@ -40,10 +40,6 @@ type PromptState = {
 } | null;
 type ConfirmState = { title: string; message: string; onConfirm: () => void } | null;
 
-function inTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
 const baseName = (p: string) => p.slice(p.lastIndexOf("/") + 1);
 const parentOf = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
 
@@ -119,34 +115,6 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
   }, [selMods, selFolders, modules]);
 
   const selectionActive = selMods.size + selFolders.size > 0;
-
-  // Tauri drag-and-drop import.
-  useEffect(() => {
-    if (!inTauri()) return;
-    let unlisten: (() => void) | undefined;
-    (async () => {
-      const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-      const { invoke } = await import("@tauri-apps/api/core");
-      unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
-        if (event.payload.type === "over" || event.payload.type === "enter") setDragging(true);
-        else if (event.payload.type === "leave") setDragging(false);
-        else if (event.payload.type === "drop") {
-          setDragging(false);
-          for (const p of event.payload.paths) {
-            if (!p.endsWith(".json")) continue;
-            try {
-              const text = await invoke<string>("read_text_file_abs", { path: p });
-              await importModuleFromText(text);
-            } catch (e) {
-              console.error("Import failed", e);
-            }
-          }
-          refresh();
-        }
-      });
-    })();
-    return () => unlisten?.();
-  }, []);
 
   // ---- actions -----------------------------------------------------------
 
@@ -294,7 +262,6 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
   const onDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    if (inTauri()) return;
     for (const file of Array.from(e.dataTransfer.files)) {
       if (!file.name.endsWith(".json")) continue;
       try {
@@ -315,9 +282,9 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
       className={`home ${dragging ? "drag-over" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
-        if (!inTauri()) setDragging(true);
+        setDragging(true);
       }}
-      onDragLeave={() => !inTauri() && setDragging(false)}
+      onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
       <header className="home-head">

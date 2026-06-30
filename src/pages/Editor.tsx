@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Loader2, LayoutGrid, Play, FileText, Code } from "lucide-react";
 import type { Module } from "../types/module";
 import { getModule, listModules, saveModule } from "../storage/modules";
+import { generateProgram } from "../blockly/codegen";
 import OverviewTab from "../components/OverviewTab";
 import DiagramTab from "../components/DiagramTab";
 import ScriptTab from "../components/ScriptTab";
@@ -24,6 +25,8 @@ export default function Editor({ moduleId, onClose, onTitleChange }: Props) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [notFound, setNotFound] = useState(false);
   const saveTimer = useRef<number | undefined>(undefined);
+  const allModulesRef = useRef<Module[]>([]);
+  allModulesRef.current = allModules;
 
   useEffect(() => {
     if (!id) return;
@@ -48,7 +51,15 @@ export default function Editor({ moduleId, onClose, onTitleChange }: Props) {
     setSaveState("saving");
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
-      await saveModule(m);
+      // Cache the generated program so the server can run this module headlessly
+      // (e.g. for scheduled jobs) without needing Blockly.
+      let toSave = m;
+      try {
+        toSave = { ...m, program: generateProgram(m, allModulesRef.current) };
+      } catch {
+        /* keep previous program if generation fails */
+      }
+      await saveModule(toSave);
       setSaveState("saved");
       window.setTimeout(() => setSaveState("idle"), 1200);
     }, 500);

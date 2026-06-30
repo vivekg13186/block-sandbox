@@ -1,7 +1,50 @@
 # Block Sandbox
 
-A desktop app for building programs out of Scratch-style blocks (Blockly), then
-generating runnable Python. Built with Tauri + React + TypeScript.
+A web app for building programs out of Scratch-style blocks (Blockly), then
+generating and running Python. A React + TypeScript UI served by a small Python
+(FastAPI) web server.
+
+## Run
+
+```bash
+# 1. Build the UI
+npm install
+npm run build                      # outputs to dist/
+
+# 2. Serve it with the Python backend
+cd server
+pip install -r requirements.txt
+# copy the built UI in (the server serves server/static/)
+mkdir -p static && cp -r ../dist/* static/
+python run.py                      # http://127.0.0.1:8000
+```
+
+Development (hot-reload UI + API on :8000):
+
+```bash
+cd server && pip install -r requirements.txt && python run.py   # API on :8000
+npm run dev                                                     # UI on :5173, proxies /api
+```
+
+Data (modules, environments, schedules, and the managed venv used to run code)
+lives in `server/data/`. The Run feature executes Python with the server's
+privileges — keep it on localhost / a trusted network.
+
+A prebuilt single zip (UI + server) is produced by the **Release** GitHub
+Action on each `v*` tag; recipients only need Python 3.10+.
+
+## Scheduling
+
+Schedules run **server-side**: a background thread fires due cron jobs while the
+server process is running (no browser tab required), runs each module's modules,
+records the result, and sends an OS desktop notification (macOS `osascript` /
+Linux `notify-send`). The Scheduler tab's **Run now** triggers a job on demand
+via the API.
+
+To run a module on a schedule, open it in the editor once and save — the editor
+caches the module's generated Python (`module.program`) so the server can run it
+headlessly. Script modules also work without this (the server generates their
+program from the script body).
 
 ## Status
 

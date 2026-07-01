@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Play, Loader2, Code2, AlertTriangle } from "lucide-react";
+import { Play, Loader2, Code2, AlertTriangle, Terminal } from "lucide-react";
 import type { Module, PortType } from "../types/module";
 import { portIdent } from "../types/module";
 import { generateProgram, previewFunction, collectRequirements } from "../blockly/codegen";
@@ -10,6 +10,8 @@ interface Props {
   module: Module;
   allModules: Module[];
 }
+
+type ResultTab = "output" | "error" | "code";
 
 function coerce(value: string, type: PortType): unknown {
   if (type === "number") {
@@ -26,7 +28,8 @@ export default function RunTab({ module, allModules }: Props) {
   const [status, setStatus] = useState<string>("");
   const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [showCode, setShowCode] = useState(false);
+  const [exitCode, setExitCode] = useState<number | null>(null);
+  const [resultTab, setResultTab] = useState<ResultTab>("output");
   const [envStore, setEnvStore] = useState<EnvStore>({ active: "", environments: [] });
 
   useEffect(() => {
@@ -54,22 +57,28 @@ export default function RunTab({ module, allModules }: Props) {
     }
   }, [module, allModules]);
 
+  const fail = (msg: string) => {
+    setError(msg);
+    setExitCode(null);
+    setResultTab("error");
+  };
+
   const run = async () => {
     if (program.error) {
-      setError(`Code generation failed: ${program.error}`);
+      fail(`Code generation failed: ${program.error}`);
       return;
     }
     setRunning(true);
     setError("");
     setOutput("");
+    setExitCode(null);
     setStatus("");
     try {
-      // Make sure required packages are installed before running.
       if (requirements.length) {
         setStatus(`Installing ${requirements.join(", ")}…`);
         const dep = await ensurePackages(requirements);
         if (dep.code !== 0) {
-          setError(`Dependency install failed:\n${dep.stderr || dep.stdout}`);
+          fail(`Dependency install failed:\n${dep.stderr || dep.stdout}`);
           return;
         }
       }
@@ -80,24 +89,29 @@ export default function RunTab({ module, allModules }: Props) {
       }
       const env = activeVars(envStore);
       const res = await runPython(program.code, JSON.stringify({ inputs, env }));
-      if (res.stderr) setError(res.stderr);
-      setOutput(res.stdout || (res.stderr ? "" : "(no output)"));
+      setExitCode(res.code);
+      setError(res.stderr || "");
+      setOutput(res.stdout || "");
+      setResultTab(res.stderr || res.code !== 0 ? "error" : "output");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      fail(e instanceof Error ? e.message : String(e));
     } finally {
       setRunning(false);
       setStatus("");
     }
   };
 
+  const tabs: { id: ResultTab; label: string; icon: typeof Terminal }[] = [
+    { id: "output", label: "Output", icon: Terminal },
+    { id: "error", label: "Error", icon: AlertTriangle },
+    { id: "code", label: "Code", icon: Code2 },
+  ];
+
   return (
     <div className="run">
       <div className="run-bar">
         <button className="btn primary" onClick={run} disabled={running || !canRun()}>
           {running ? <Loader2 size={15} className="spin" /> : <Play size={15} />} Run
-        </button>
-        <button className={`btn ${showCode ? "active" : ""}`} onClick={() => setShowCode((s) => !s)}>
-          <Code2 size={15} /> {showCode ? "Hide code" : "Show code"}
         </button>
         <label className="env-pick">
           env:
@@ -153,21 +167,36 @@ export default function RunTab({ module, allModules }: Props) {
         </section>
 
         <section className="run-output">
-          <h3>Output</h3>
-          {output && <pre className="code-preview ok">{output}</pre>}
-          {error && (
-            <pre className="code-preview err">
-              <AlertTriangle size={14} /> {error}
-            </pre>
-          )}
-          {!output && !error && <p className="muted">Run the module to see output here.</p>}
+          <div className="result-tabs">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                className={`result-tab ${resultTab === t.id ? "active" : ""}`}
+                onClick={() => setResultTab(t.id)}
+              >
+                <t.icon size={14} /> {t.label}
+              </button>
+            ))}
+            {exitCode !== null && (
+              <span className={`exit-badge ${exitCode === 0 ? "ok" : "err"}`}>exit {exitCode}</span>
+            )}
+          </div>
 
-          {showCode && (
-            <>
-              <h3>Generated Python</h3>
-              <pre className="code-preview">{preview}</pre>
-            </>
-          )}
+          <div className="result-body">
+            {resultTab === "output" &&
+              (output ? (
+                <pre className="code-preview">{output}</pre>
+              ) : (
+                <p className="muted">Run the module to see output here.</p>
+              ))}
+            {resultTab === "error" &&
+              (error ? (
+                <pre className="code-preview err">{error}</pre>
+              ) : (
+                <p className="muted">No errors.</p>
+              ))}
+            {resultTab === "code" && <pre className="code-preview">{preview}</pre>}
+          </div>
         </section>
       </div>
     </div>

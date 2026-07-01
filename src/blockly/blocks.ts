@@ -142,6 +142,32 @@ function registerStaticBlocks(): void {
       tooltip: "List of an object's values",
     },
     {
+      type: "object_get_path",
+      message0: "get path %1 of %2",
+      args0: [
+        { type: "field_input", name: "PATH", text: "address.line1" },
+        { type: "input_value", name: "OBJ" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: OBJ_COLOUR,
+      tooltip: "Read a nested value by dotted path (None if missing)",
+    },
+    {
+      type: "object_set_path",
+      message0: "set path %1 of %2 to %3",
+      args0: [
+        { type: "field_input", name: "PATH", text: "address.line1" },
+        { type: "input_value", name: "OBJ" },
+        { type: "input_value", name: "VALUE" },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: OBJ_COLOUR,
+      tooltip: "Set a nested value by dotted path, creating intermediate objects",
+    },
+    {
       type: "file_read",
       message0: "read text file %1",
       args0: [{ type: "input_value", name: "PATH" }],
@@ -298,6 +324,37 @@ function registerStaticBlocks(): void {
   pythonGenerator.forBlock["object_values"] = (block) => {
     const obj = pythonGenerator.valueToCode(block, "OBJ", Order.NONE) || "{}";
     return [`list((${obj}).values())`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["object_get_path"] = (block) => {
+    const fn = pythonGenerator.provideFunction_("bs_get_path", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(obj, path):`,
+      "    d = obj",
+      "    for k in str(path).split('.'):",
+      "        if not isinstance(d, dict):",
+      "            return None",
+      "        d = d.get(k)",
+      "    return d",
+    ]);
+    const obj = pythonGenerator.valueToCode(block, "OBJ", Order.NONE) || "{}";
+    const path = block.getFieldValue("PATH") || "";
+    return [`${fn}(${obj}, ${JSON.stringify(path)})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["object_set_path"] = (block) => {
+    const fn = pythonGenerator.provideFunction_("bs_set_path", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(obj, path, value):`,
+      "    parts = str(path).split('.')",
+      "    d = obj",
+      "    for k in parts[:-1]:",
+      "        if not isinstance(d.get(k), dict):",
+      "            d[k] = {}",
+      "        d = d[k]",
+      "    d[parts[-1]] = value",
+      "    return obj",
+    ]);
+    const obj = pythonGenerator.valueToCode(block, "OBJ", Order.NONE) || "{}";
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
+    const path = block.getFieldValue("PATH") || "";
+    return `${fn}(${obj}, ${JSON.stringify(path)}, ${value})\n`;
   };
 
   // File I/O blocks. Helpers are emitted once per program via provideFunction_.
@@ -563,6 +620,8 @@ export function buildToolbox(current: Module, all: Module[]): object {
           },
           { kind: "block", type: "object_keys" },
           { kind: "block", type: "object_values" },
+          { kind: "block", type: "object_get_path" },
+          { kind: "block", type: "object_set_path" },
         ],
       },
       {

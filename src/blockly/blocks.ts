@@ -258,6 +258,30 @@ function registerStaticBlocks(): void {
       tooltip: "Delete a file",
     },
     {
+      type: "logic_default_empty",
+      message0: "%1 if not empty else %2",
+      args0: [
+        { type: "input_value", name: "VALUE" },
+        { type: "input_value", name: "DEFAULT" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: "210",
+      tooltip: "Return the value, or the default when it is empty/None (None, '', [], {}, 0, false)",
+    },
+    {
+      type: "logic_default_none",
+      message0: "%1 if not None else %2",
+      args0: [
+        { type: "input_value", name: "VALUE" },
+        { type: "input_value", name: "DEFAULT" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: "210",
+      tooltip: "Return the value, or the default only when it is None",
+    },
+    {
       type: "log_value",
       message0: "log %1",
       args0: [{ type: "input_value", name: "VALUE" }],
@@ -426,6 +450,25 @@ function registerStaticBlocks(): void {
   ];
   pythonGenerator.forBlock["file_delete"] = (block) =>
     `__import__('os').remove(${path(block)})\n`;
+
+  pythonGenerator.forBlock["logic_default_empty"] = (block) => {
+    const fn = pythonGenerator.provideFunction_("bs_default_empty", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(v, d):`,
+      "    return d if (v is None or v == '' or v == [] or v == {} or v is False or v == 0) else v",
+    ]);
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
+    const dflt = pythonGenerator.valueToCode(block, "DEFAULT", Order.NONE) || "None";
+    return [`${fn}(${value}, ${dflt})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["logic_default_none"] = (block) => {
+    const fn = pythonGenerator.provideFunction_("bs_default_none", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(v, d):`,
+      "    return d if v is None else v",
+    ]);
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
+    const dflt = pythonGenerator.valueToCode(block, "DEFAULT", Order.NONE) || "None";
+    return [`${fn}(${value}, ${dflt})`, Order.FUNCTION_CALL];
+  };
 
   pythonGenerator.forBlock["log_value"] = (block) => {
     const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "''";
@@ -735,6 +778,16 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "logic_boolean" },
           { kind: "block", type: "logic_null" },
           { kind: "block", type: "logic_ternary" },
+          {
+            kind: "block",
+            type: "logic_default_empty",
+            inputs: { DEFAULT: { shadow: { type: "text", fields: { TEXT: "default" } } } },
+          },
+          {
+            kind: "block",
+            type: "logic_default_none",
+            inputs: { DEFAULT: { shadow: { type: "text", fields: { TEXT: "default" } } } },
+          },
         ],
       },
       {

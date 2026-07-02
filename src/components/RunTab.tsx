@@ -36,11 +36,6 @@ export default function RunTab({ module, allModules }: Props) {
     loadEnvStore().then(setEnvStore);
   }, []);
 
-  const requirements = useMemo(
-    () => collectRequirements(module, allModules),
-    [module, allModules]
-  );
-
   const program = useMemo(() => {
     try {
       return { code: generateProgram(module, allModules), error: "" };
@@ -48,6 +43,13 @@ export default function RunTab({ module, allModules }: Props) {
       return { code: "", error: e instanceof Error ? e.message : String(e) };
     }
   }, [module, allModules]);
+
+  const requirements = useMemo(() => {
+    const declared = collectRequirements(module, allModules);
+    // Auto-add packages inferred from the generated code (e.g. Excel blocks).
+    const auto = program.code.includes("import openpyxl") ? ["openpyxl"] : [];
+    return [...new Set([...declared, ...auto])];
+  }, [module, allModules, program.code]);
 
   const preview = useMemo(() => {
     try {

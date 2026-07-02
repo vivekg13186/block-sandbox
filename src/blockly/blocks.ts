@@ -258,6 +258,29 @@ function registerStaticBlocks(): void {
       tooltip: "Delete a file",
     },
     {
+      type: "read_table",
+      message0: "read rows from %1",
+      args0: [{ type: "input_value", name: "PATH" }],
+      output: null,
+      colour: FILE_COLOUR,
+      tooltip: "Read a CSV or Excel (.xlsx) file into a list of row objects keyed by header",
+    },
+    {
+      type: "for_each_row",
+      message0: "for each row %1 in file %2",
+      args0: [
+        { type: "field_variable", name: "VAR", variable: "row" },
+        { type: "input_value", name: "PATH" },
+      ],
+      message1: "do %1",
+      args1: [{ type: "input_statement", name: "DO" }],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: FILE_COLOUR,
+      tooltip: "Loop over each row (as an object) of a CSV or Excel file",
+    },
+    {
       type: "logic_default_empty",
       message0: "%1 if not empty else %2",
       args0: [
@@ -450,6 +473,35 @@ function registerStaticBlocks(): void {
   ];
   pythonGenerator.forBlock["file_delete"] = (block) =>
     `__import__('os').remove(${path(block)})\n`;
+
+  const readRowsFn = () =>
+    pythonGenerator.provideFunction_("bs_read_rows", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(path):`,
+      "    p = str(path)",
+      "    if p.lower().endswith(('.xlsx', '.xlsm', '.xls')):",
+      "        import openpyxl",
+      "        wb = openpyxl.load_workbook(p, read_only=True, data_only=True)",
+      "        rows = list(wb.active.iter_rows(values_only=True))",
+      "        if not rows:",
+      "            return []",
+      "        headers = [str(h) if h is not None else '' for h in rows[0]]",
+      "        return [ {headers[i]: (r[i] if i < len(r) else None) for i in range(len(headers))} for r in rows[1:] ]",
+      "    import csv",
+      "    with open(p, newline='', encoding='utf-8') as f:",
+      "        return [dict(row) for row in csv.DictReader(f)]",
+    ]);
+
+  pythonGenerator.forBlock["read_table"] = (block) => {
+    const fn = readRowsFn();
+    return [`${fn}(${path(block)})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["for_each_row"] = (block) => {
+    const fn = readRowsFn();
+    const varName = pythonGenerator.getVariableName(block.getFieldValue("VAR"));
+    let branch = pythonGenerator.statementToCode(block, "DO");
+    if (!branch) branch = pythonGenerator.INDENT + "pass\n";
+    return `for ${varName} in ${fn}(${path(block)}):\n${branch}`;
+  };
 
   pythonGenerator.forBlock["logic_default_empty"] = (block) => {
     const fn = pythonGenerator.provideFunction_("bs_default_empty", [
@@ -762,6 +814,16 @@ export function buildToolbox(current: Module, all: Module[]): object {
             kind: "block",
             type: "file_delete",
             inputs: { PATH: { shadow: { type: "text", fields: { TEXT: "path/to/file" } } } },
+          },
+          {
+            kind: "block",
+            type: "read_table",
+            inputs: { PATH: { shadow: { type: "text", fields: { TEXT: "data.csv" } } } },
+          },
+          {
+            kind: "block",
+            type: "for_each_row",
+            inputs: { PATH: { shadow: { type: "text", fields: { TEXT: "data.csv" } } } },
           },
         ],
       },

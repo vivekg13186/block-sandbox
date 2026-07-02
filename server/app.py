@@ -455,7 +455,9 @@ def run_schedule(sched: dict) -> dict:
             if sched.get("stopOnError"):
                 break
             continue
-        reqs = m.get("requirements") or []
+        reqs = list(m.get("requirements") or [])
+        if "import openpyxl" in prog and "openpyxl" not in reqs:
+            reqs.append("openpyxl")
         if reqs:
             dep = _ensure(reqs)
             if dep.code != 0:

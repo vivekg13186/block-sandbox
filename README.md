@@ -30,8 +30,28 @@ Data (modules, environments, schedules, and the managed venv used to run code)
 lives in `server/data/`. The Run feature executes Python with the server's
 privileges — keep it on localhost / a trusted network.
 
-A prebuilt single zip (UI + server) is produced by the **Release** GitHub
-Action on each `v*` tag; recipients only need Python 3.10+.
+## Bundle for running
+
+One command stages the built UI + server into a self-contained folder and zip:
+
+```bash
+python tools/build_dist.py            # -> build/block-sandbox/ and build/block-sandbox-<version>.zip
+python tools/build_dist.py --skip-frontend   # reuse an existing dist/
+```
+
+It also copies the UI into `server/static/`, so you can run in place:
+
+```bash
+cd server
+pip install -r requirements.txt
+python run.py                         # http://127.0.0.1:8000
+```
+
+To ship it: send `build/block-sandbox-<version>.zip`. The recipient needs only
+Python 3.10+ and runs `pip install -r requirements.txt && python run.py`.
+
+The **Release** GitHub Action produces the same zip automatically on each `v*`
+tag and attaches it to a draft release.
 
 ## Scheduling
 

@@ -47,12 +47,31 @@ export async function exportModule(m: Module): Promise<boolean> {
   return true;
 }
 
-/** Export several modules at once (one download each). */
+/** Export several modules as a single .zip, preserving the folder tree. */
 export async function exportModules(modules: Module[]): Promise<boolean> {
   if (modules.length === 0) return false;
+  if (modules.length === 1) return exportModule(modules[0]);
+
+  const { default: JSZip } = await import("jszip");
+  const zip = new JSZip();
+  const used = new Set<string>();
   for (const m of modules) {
-    await exportModule(m);
+    const folder = (m.folder || "").trim();
+    let path = `${folder ? folder + "/" : ""}${safeFileName(m.name)}.json`;
+    if (used.has(path)) {
+      path = `${folder ? folder + "/" : ""}${safeFileName(m.name)}-${m.id.slice(0, 6)}.json`;
+    }
+    used.add(path);
+    zip.file(path, serialize(m));
   }
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "block-sandbox-modules.zip";
+  a.click();
+  URL.revokeObjectURL(url);
   return true;
 }
 

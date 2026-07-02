@@ -569,6 +569,36 @@ select:focus {
   color: white;
 }
 
+/* Code editor modal (code_text block field) */
+.code-modal {
+  width: 720px;
+  max-width: 94vw;
+  height: 70vh;
+  max-height: 80vh;
+}
+.code-modal-editor {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.code-modal-editor .cm-editor {
+  height: 100%;
+  font-size: 13px;
+}
+.code-modal-editor .cm-scroller {
+  overflow: auto;
+}
+.code-modal-status {
+  font-size: 12px;
+  min-height: 16px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Scheduler */
 .scheduler {
   height: 100%;

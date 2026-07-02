@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Bundle output + server runtime data
+build/
+server/static/
+server/data/
+__pycache__/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

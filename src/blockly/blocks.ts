@@ -11,7 +11,15 @@
 import * as Blockly from "blockly";
 import { pythonGenerator, Order } from "blockly/python";
 import type { Module } from "../types/module";
-import { portIdent } from "../types/module";
+import { portIdent, normalizeFolder } from "../types/module";
+import { registerCodeField } from "./fieldCode";
+import {
+  registerLodashBlocks,
+  lodashCategories,
+  listCategoryExtras,
+  objectCategoryExtras,
+  textCategoryExtras,
+} from "./lodashBlocks";
 
 export const IN_COLOUR = 160;
 export const OUT_COLOUR = 20;
@@ -27,6 +35,8 @@ let staticRegistered = false;
 function registerStaticBlocks(): void {
   if (staticRegistered) return;
   staticRegistered = true;
+
+  registerCodeField();
 
   Blockly.common.defineBlocksWithJsonArray([
     {
@@ -448,6 +458,7 @@ export function moduleFuncName(m: Module): string {
  */
 export function registerDynamicBlocks(current: Module, all: Module[]): void {
   registerStaticBlocks();
+  registerLodashBlocks();
   const defs: object[] = [];
 
   // Inputs -> value getter blocks.
@@ -517,13 +528,52 @@ export function registerDynamicBlocks(current: Module, all: Module[]): void {
   if (defs.length) Blockly.common.defineBlocksWithJsonArray(defs);
 }
 
+interface ModTreeNode {
+  subs: Map<string, ModTreeNode>;
+  blocks: Module[];
+}
+
+/**
+ * Nest other modules into subcategories mirroring their folder tree, so the
+ * "Modules" palette doesn't become one giant flat list as projects grow.
+ * Root-level modules appear directly; foldered modules go under sub-categories.
+ */
+function buildModuleCategories(current: Module, all: Module[]): object[] {
+  const root: ModTreeNode = { subs: new Map(), blocks: [] };
+  for (const m of all) {
+    if (m.id === current.id) continue;
+    const parts = normalizeFolder(m.folder).split("/").filter(Boolean);
+    let node = root;
+    for (const seg of parts) {
+      if (!node.subs.has(seg)) node.subs.set(seg, { subs: new Map(), blocks: [] });
+      node = node.subs.get(seg)!;
+    }
+    node.blocks.push(m);
+  }
+
+  const render = (node: ModTreeNode): object[] => {
+    const cats = [...node.subs.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, child]) => ({
+        kind: "category",
+        name,
+        colour: String(MOD_COLOUR),
+        contents: render(child),
+      }));
+    const blocks = [...node.blocks]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((m) => ({ kind: "block", type: modType(m.id) }));
+    return [...cats, ...blocks];
+  };
+
+  return render(root);
+}
+
 /** Build a category toolbox tailored to the current module. */
 export function buildToolbox(current: Module, all: Module[]): object {
   const inputBlocks = current.inputs.map((p) => ({ kind: "block", type: inType(p.id) }));
   const outputBlocks = current.outputs.map((p) => ({ kind: "block", type: outType(p.id) }));
-  const moduleBlocks = all
-    .filter((m) => m.id !== current.id)
-    .map((m) => ({ kind: "block", type: modType(m.id) }));
+  const moduleContents = buildModuleCategories(current, all);
 
   return {
     kind: "categoryToolbox",
@@ -548,8 +598,8 @@ export function buildToolbox(current: Module, all: Module[]): object {
         kind: "category",
         name: "Modules",
         colour: String(MOD_COLOUR),
-        contents: moduleBlocks.length
-          ? moduleBlocks
+        contents: moduleContents.length
+          ? moduleContents
           : [{ kind: "label", text: "No other modules yet" }],
       },
       {
@@ -622,6 +672,7 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "object_values" },
           { kind: "block", type: "object_get_path" },
           { kind: "block", type: "object_set_path" },
+          ...objectCategoryExtras(),
         ],
       },
       {
@@ -721,6 +772,7 @@ export function buildToolbox(current: Module, all: Module[]): object {
         colour: "160",
         contents: [
           { kind: "block", type: "text" },
+          { kind: "block", type: "code_text" },
           { kind: "block", type: "text_join" },
           {
             kind: "block",
@@ -797,6 +849,7 @@ export function buildToolbox(current: Module, all: Module[]): object {
             type: "text_prompt_ext",
             inputs: { TEXT: { shadow: { type: "text", fields: { TEXT: "abc" } } } },
           },
+          ...textCategoryExtras(),
         ],
       },
       {
@@ -809,8 +862,12 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "lists_isEmpty" },
           { kind: "block", type: "lists_getIndex" },
           { kind: "block", type: "lists_setIndex" },
+          ...listCategoryExtras(),
         ],
       },
+      { kind: "sep" },
+      ...lodashCategories(),
+      { kind: "sep" },
       { kind: "category", name: "Variables", colour: "330", custom: "VARIABLE" },
       { kind: "category", name: "Functions", colour: "290", custom: "PROCEDURE" },
     ],

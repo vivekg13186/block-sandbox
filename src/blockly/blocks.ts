@@ -413,6 +413,30 @@ function registerStaticBlocks(): void {
       tooltip: "Return the value, or the default only when it is None",
     },
     {
+      type: "url_join",
+      message0: "join url %1 / %2",
+      args0: [
+        { type: "input_value", name: "BASE" },
+        { type: "input_value", name: "PATH" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: "160",
+      tooltip: "Join a base URL and a path without double slashes",
+    },
+    {
+      type: "path_join",
+      message0: "join path %1 / %2",
+      args0: [
+        { type: "input_value", name: "A" },
+        { type: "input_value", name: "B" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: "160",
+      tooltip: "Join two file path segments (os.path.join)",
+    },
+    {
       type: "log_value",
       message0: "log %1",
       args0: [{ type: "input_value", name: "VALUE" }],
@@ -731,6 +755,21 @@ function registerStaticBlocks(): void {
     const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
     const dflt = pythonGenerator.valueToCode(block, "DEFAULT", Order.NONE) || "None";
     return [`${fn}(${value}, lambda: ${dflt})`, Order.FUNCTION_CALL];
+  };
+
+  pythonGenerator.forBlock["url_join"] = (block) => {
+    const fn = pythonGenerator.provideFunction_("bs_url_join", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(base, path):`,
+      "    return str(base).rstrip('/') + '/' + str(path).lstrip('/')",
+    ]);
+    const base = pythonGenerator.valueToCode(block, "BASE", Order.NONE) || "''";
+    const path = pythonGenerator.valueToCode(block, "PATH", Order.NONE) || "''";
+    return [`${fn}(${base}, ${path})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["path_join"] = (block) => {
+    const a = pythonGenerator.valueToCode(block, "A", Order.NONE) || "''";
+    const b = pythonGenerator.valueToCode(block, "B", Order.NONE) || "''";
+    return [`__import__('os').path.join(str(${a}), str(${b}))`, Order.FUNCTION_CALL];
   };
 
   pythonGenerator.forBlock["log_value"] = (block) => {
@@ -1138,6 +1177,22 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "text" },
           { kind: "block", type: "code_text" },
           { kind: "block", type: "text_join" },
+          {
+            kind: "block",
+            type: "url_join",
+            inputs: {
+              BASE: { shadow: { type: "text", fields: { TEXT: "https://api.example.com" } } },
+              PATH: { shadow: { type: "text", fields: { TEXT: "v1/users" } } },
+            },
+          },
+          {
+            kind: "block",
+            type: "path_join",
+            inputs: {
+              A: { shadow: { type: "text", fields: { TEXT: "folder" } } },
+              B: { shadow: { type: "text", fields: { TEXT: "file.txt" } } },
+            },
+          },
           {
             kind: "block",
             type: "text_append",

@@ -46,8 +46,10 @@ export default function RunTab({ module, allModules }: Props) {
 
   const requirements = useMemo(() => {
     const declared = collectRequirements(module, allModules);
-    // Auto-add packages inferred from the generated code (e.g. Excel blocks).
-    const auto = program.code.includes("import openpyxl") ? ["openpyxl"] : [];
+    // Auto-add packages inferred from the generated code (Excel/HTTP blocks).
+    const auto: string[] = [];
+    if (program.code.includes("import openpyxl")) auto.push("openpyxl");
+    if (program.code.includes("import requests")) auto.push("requests");
     return [...new Set([...declared, ...auto])];
   }, [module, allModules, program.code]);
 

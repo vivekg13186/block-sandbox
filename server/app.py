@@ -456,8 +456,9 @@ def run_schedule(sched: dict) -> dict:
                 break
             continue
         reqs = list(m.get("requirements") or [])
-        if "import openpyxl" in prog and "openpyxl" not in reqs:
-            reqs.append("openpyxl")
+        for imp, pkg in (("import openpyxl", "openpyxl"), ("import requests", "requests")):
+            if imp in prog and pkg not in reqs:
+                reqs.append(pkg)
         if reqs:
             dep = _ensure(reqs)
             if dep.code != 0:

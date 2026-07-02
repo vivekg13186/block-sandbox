@@ -28,6 +28,7 @@ export const ENV_COLOUR = 60;
 export const JSON_COLOUR = 200;
 export const OBJ_COLOUR = 300;
 export const FILE_COLOUR = 45;
+export const HTTP_COLOUR = 195;
 
 let staticRegistered = false;
 
@@ -256,6 +257,81 @@ function registerStaticBlocks(): void {
       nextStatement: null,
       colour: FILE_COLOUR,
       tooltip: "Delete a file",
+    },
+    {
+      type: "http_request",
+      message0: "HTTP %1 %2",
+      args0: [
+        {
+          type: "field_dropdown",
+          name: "METHOD",
+          options: [
+            ["GET", "GET"],
+            ["POST", "POST"],
+            ["PUT", "PUT"],
+            ["PATCH", "PATCH"],
+            ["DELETE", "DELETE"],
+          ],
+        },
+        { type: "input_value", name: "URL" },
+      ],
+      message1: "headers %1 body %2",
+      args1: [
+        { type: "input_value", name: "HEADERS" },
+        { type: "input_value", name: "BODY" },
+      ],
+      message2: "auth %1 verify ssl %2",
+      args2: [
+        { type: "input_value", name: "AUTH" },
+        { type: "field_checkbox", name: "VERIFY", checked: false },
+      ],
+      output: null,
+      colour: HTTP_COLOUR,
+      tooltip: "Send an HTTP request; returns {status, ok, data, text}",
+    },
+    {
+      type: "http_basic_auth",
+      message0: "basic auth user %1 password %2",
+      args0: [
+        { type: "input_value", name: "USER" },
+        { type: "input_value", name: "PASS" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: HTTP_COLOUR,
+      tooltip: "HTTP Basic auth credentials (username, password) for the auth slot",
+    },
+    {
+      type: "http_get_json",
+      message0: "GET JSON from %1",
+      args0: [{ type: "input_value", name: "URL" }],
+      output: null,
+      colour: HTTP_COLOUR,
+      tooltip: "GET a URL and return the parsed JSON body",
+    },
+    {
+      type: "http_status",
+      message0: "status of %1",
+      args0: [{ type: "input_value", name: "RESP" }],
+      output: null,
+      colour: HTTP_COLOUR,
+      tooltip: "HTTP status code of a response",
+    },
+    {
+      type: "http_body",
+      message0: "body of %1",
+      args0: [{ type: "input_value", name: "RESP" }],
+      output: null,
+      colour: HTTP_COLOUR,
+      tooltip: "Parsed JSON body (or text) of a response",
+    },
+    {
+      type: "http_ok",
+      message0: "ok of %1",
+      args0: [{ type: "input_value", name: "RESP" }],
+      output: null,
+      colour: HTTP_COLOUR,
+      tooltip: "True if the response status was 2xx",
     },
     {
       type: "for_each_row_of",
@@ -561,6 +637,71 @@ function registerStaticBlocks(): void {
     let branch = pythonGenerator.statementToCode(block, "DO");
     if (!branch) branch = pythonGenerator.INDENT + "pass\n";
     return `for ${varName} in ${fn}(${path(block)}):\n${branch}`;
+  };
+  const httpFn = () =>
+    pythonGenerator.provideFunction_("bs_http", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(method, url, headers=None, body=None, auth=None, verify=False):`,
+      "    import requests",
+      "    if not verify:",
+      "        try:",
+      "            import urllib3",
+      "            urllib3.disable_warnings()",
+      "        except Exception:",
+      "            pass",
+      "    kw = {'timeout': 30, 'verify': verify}",
+      "    if headers:",
+      "        kw['headers'] = headers",
+      "    if auth:",
+      "        kw['auth'] = tuple(auth) if isinstance(auth, (list, tuple)) else auth",
+      "    if body is not None:",
+      "        if isinstance(body, (dict, list)):",
+      "            kw['json'] = body",
+      "        else:",
+      "            kw['data'] = body",
+      "    r = requests.request(str(method).upper(), str(url), **kw)",
+      "    try:",
+      "        data = r.json()",
+      "    except Exception:",
+      "        data = None",
+      "    return {'status': r.status_code, 'ok': r.ok, 'data': data, 'text': r.text}",
+    ]);
+  pythonGenerator.forBlock["http_request"] = (block) => {
+    const fn = httpFn();
+    const method = block.getFieldValue("METHOD") || "GET";
+    const url = pythonGenerator.valueToCode(block, "URL", Order.NONE) || "''";
+    const headers = pythonGenerator.valueToCode(block, "HEADERS", Order.NONE) || "None";
+    const body = pythonGenerator.valueToCode(block, "BODY", Order.NONE) || "None";
+    const auth = pythonGenerator.valueToCode(block, "AUTH", Order.NONE) || "None";
+    const verify = block.getFieldValue("VERIFY") === "TRUE" ? "True" : "False";
+    return [
+      `${fn}(${JSON.stringify(method)}, ${url}, ${headers}, ${body}, ${auth}, ${verify})`,
+      Order.FUNCTION_CALL,
+    ];
+  };
+  pythonGenerator.forBlock["http_get_json"] = (block) => {
+    const fn = httpFn();
+    const url = pythonGenerator.valueToCode(block, "URL", Order.NONE) || "''";
+    return [`${fn}("GET", ${url}, None, None, None, False).get("data")`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["http_basic_auth"] = (block) => {
+    const user = pythonGenerator.valueToCode(block, "USER", Order.NONE) || "''";
+    const pass = pythonGenerator.valueToCode(block, "PASS", Order.NONE) || "''";
+    return [`(str(${user}), str(${pass}))`, Order.ATOMIC];
+  };
+  pythonGenerator.forBlock["http_status"] = (block) => {
+    const resp = pythonGenerator.valueToCode(block, "RESP", Order.NONE) || "{}";
+    return [`(${resp}).get("status")`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["http_body"] = (block) => {
+    const resp = pythonGenerator.valueToCode(block, "RESP", Order.NONE) || "{}";
+    return [
+      `((${resp}).get("data") if (${resp}).get("data") is not None else (${resp}).get("text"))`,
+      Order.CONDITIONAL,
+    ];
+  };
+  pythonGenerator.forBlock["http_ok"] = (block) => {
+    const resp = pythonGenerator.valueToCode(block, "RESP", Order.NONE) || "{}";
+    return [`(${resp}).get("ok")`, Order.FUNCTION_CALL];
   };
   pythonGenerator.forBlock["for_each_row_of"] = (block) => {
     const varName = pythonGenerator.getVariableName(block.getFieldValue("VAR"));
@@ -900,6 +1041,38 @@ export function buildToolbox(current: Module, all: Module[]): object {
             type: "for_each_row",
             inputs: { PATH: { shadow: { type: "text", fields: { TEXT: "data.csv" } } } },
           },
+        ],
+      },
+      {
+        kind: "category",
+        name: "HTTP",
+        colour: String(HTTP_COLOUR),
+        contents: [
+          {
+            kind: "block",
+            type: "http_request",
+            inputs: {
+              URL: { shadow: { type: "text", fields: { TEXT: "https://api.example.com" } } },
+            },
+          },
+          {
+            kind: "block",
+            type: "http_get_json",
+            inputs: {
+              URL: { shadow: { type: "text", fields: { TEXT: "https://api.example.com" } } },
+            },
+          },
+          {
+            kind: "block",
+            type: "http_basic_auth",
+            inputs: {
+              USER: { shadow: { type: "text", fields: { TEXT: "user" } } },
+              PASS: { shadow: { type: "text", fields: { TEXT: "password" } } },
+            },
+          },
+          { kind: "block", type: "http_status" },
+          { kind: "block", type: "http_body" },
+          { kind: "block", type: "http_ok" },
         ],
       },
       { kind: "sep" },

@@ -263,7 +263,7 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
     e.preventDefault();
     setDragging(false);
     for (const file of Array.from(e.dataTransfer.files)) {
-      if (!file.name.endsWith(".json")) continue;
+      if (!/\.(ya?ml|json)$/i.test(file.name)) continue;
       try {
         await importModuleFromText(await file.text());
       } catch (err) {

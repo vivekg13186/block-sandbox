@@ -26,9 +26,18 @@ cd server && pip install -r requirements.txt && python run.py   # API on :8000
 npm run dev                                                     # UI on :5173, proxies /api
 ```
 
-Data (modules, environments, schedules, and the managed venv used to run code)
-lives in `server/data/`. The Run feature executes Python with the server's
-privileges — keep it on localhost / a trusted network.
+Data lives in `server/data/` as human-friendly **YAML**:
+
+- `modules/<folder>/<name>.yml` — one file per module (script/generated Python
+  appear as readable block scalars). Copy a whole directory of `.yml` files in
+  and they show up automatically — a missing id/name is filled in on load, and
+  the folder comes from the path. Exported `.yml`/`.json` files are also
+  accepted (the export envelope is unwrapped).
+- `environments.yml`, `schedules.yml` — global env vars and scheduled jobs.
+
+Export/import from the UI uses `.yml` (JSON still imports fine). The Run feature
+executes Python with the server's privileges — keep it on localhost / a trusted
+network.
 
 ## Bundle for running
 

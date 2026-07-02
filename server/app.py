@@ -3,8 +3,9 @@
 Serves the built React UI and a small JSON API backing the same features the
 desktop (Tauri) build provided:
 
-  * module storage as a folder tree (one JSON file per module)
-  * global environments + schedules
+  * module storage as a folder tree of human-friendly YAML files (one per
+    module) — copy a directory of .yml files in and they just work
+  * global environments + schedules (YAML documents)
   * running generated Python (in a managed virtualenv)
   * installing pip requirements into that venv
 
@@ -19,6 +20,7 @@ import re
 import subprocess
 import sys
 import threading
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -31,16 +33,74 @@ from pydantic import BaseModel
 
 from scheduler import MinuteTimer, cron_matches
 
+try:
+    import yaml
+except Exception:  # pragma: no cover - yaml is a declared dependency
+    yaml = None
+
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("BLOCK_SANDBOX_DATA", ROOT / "data"))
 MODULES_DIR = DATA / "modules"
-ENV_FILE = DATA / "environments.json"
-SCHED_FILE = DATA / "schedules.json"
 VENV_DIR = DATA / "venv"
 STATIC_DIR = ROOT / "static"  # built UI is copied here at package time
+DOC_EXT = ".yml" if yaml else ".json"
+READ_EXTS = (".yml", ".yaml", ".json")  # accept any; write .yml
 
 DATA.mkdir(parents=True, exist_ok=True)
 MODULES_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# --------------------------------------------------------------------------
+# Serialization: YAML on disk (multi-line script/program become readable block
+# scalars); falls back to JSON if PyYAML is unavailable. YAML is a JSON
+# superset, so .json files still parse.
+# --------------------------------------------------------------------------
+
+if yaml is not None:
+    def _str_representer(dumper, data):
+        style = "|" if "\n" in data else None
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+    yaml.add_representer(str, _str_representer, Dumper=yaml.SafeDumper)
+
+
+def dumps(obj: Any) -> str:
+    if yaml is not None:
+        return yaml.safe_dump(obj, sort_keys=False, allow_unicode=True, default_flow_style=False)
+    return json.dumps(obj, indent=2)
+
+
+def loads(text: str) -> Any:
+    if yaml is not None:
+        return yaml.safe_load(text)
+    return json.loads(text)
+
+
+def _doc_path(stem: str) -> Path:
+    return DATA / f"{stem}{DOC_EXT}"
+
+
+def read_doc(stem: str, default: Any) -> Any:
+    for ext in READ_EXTS:
+        p = DATA / f"{stem}{ext}"
+        if p.exists():
+            try:
+                return loads(p.read_text(encoding="utf-8")) or default
+            except Exception:
+                return default
+    return default
+
+
+def write_doc(stem: str, obj: Any) -> None:
+    target = _doc_path(stem)
+    target.write_text(dumps(obj), encoding="utf-8")
+    for ext in READ_EXTS:  # drop stale copies in other formats
+        p = DATA / f"{stem}{ext}"
+        if p != target and p.exists():
+            try:
+                p.unlink()
+            except OSError:
+                pass
 
 
 @asynccontextmanager
@@ -57,7 +117,7 @@ app = FastAPI(title="Block Sandbox", lifespan=lifespan)
 
 
 # --------------------------------------------------------------------------
-# Module storage (folder tree, one JSON per module)
+# Module storage (folder tree, one YAML file per module)
 # --------------------------------------------------------------------------
 
 def safe_base(name: str) -> str:
@@ -68,19 +128,52 @@ def safe_base(name: str) -> str:
 def module_path(folder: str, name: str) -> Path:
     folder = "/".join(p for p in (folder or "").split("/") if p.strip())
     base = MODULES_DIR / folder if folder else MODULES_DIR
-    return base / f"{safe_base(name)}.json"
+    return base / f"{safe_base(name)}{DOC_EXT}"
+
+
+def _load_module_file(path: Path) -> Optional[dict]:
+    """Read a module file, tolerating hand-copied files: unwrap the export
+    envelope ({format, version, module}) and backfill a missing id/name.
+    Self-heals the file on disk when it had to be normalized."""
+    try:
+        data = loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    changed = False
+    # Unwrap an exported envelope.
+    if (
+        isinstance(data, dict)
+        and data.get("format") == "block-sandbox.module"
+        and isinstance(data.get("module"), dict)
+    ):
+        data = data["module"]
+        changed = True
+    if not isinstance(data, dict):
+        return None
+    if not data.get("id"):
+        data["id"] = str(uuid.uuid4())
+        changed = True
+    if not data.get("name"):
+        data["name"] = path.stem
+        changed = True
+    if changed:
+        try:
+            path.write_text(dumps(data), encoding="utf-8")
+        except OSError:
+            pass
+    return data
 
 
 def walk_modules() -> list[tuple[Path, dict]]:
     out: list[tuple[Path, dict]] = []
-    for path in MODULES_DIR.rglob("*.json"):
-        try:
-            m = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+    for path in MODULES_DIR.rglob("*"):
+        if not path.is_file() or path.suffix not in READ_EXTS:
+            continue
+        m = _load_module_file(path)
+        if m is None:
             continue
         rel = path.relative_to(MODULES_DIR)
-        folder = "/".join(rel.parts[:-1])
-        m["folder"] = folder
+        m["folder"] = "/".join(rel.parts[:-1])
         out.append((path, m))
     return out
 
@@ -111,7 +204,7 @@ def save_module(module_id: str, module: dict = Body(...)) -> dict:
                              f"{module.get('name', 'module')}-{module_id[:6]}")
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(module, indent=2), encoding="utf-8")
+    target.write_text(dumps(module), encoding="utf-8")
 
     if found and found.resolve() != target.resolve():
         try:
@@ -133,37 +226,28 @@ def delete_module(module_id: str) -> dict:
 
 
 # --------------------------------------------------------------------------
-# Environments + schedules (single JSON documents)
+# Environments + schedules (single YAML documents)
 # --------------------------------------------------------------------------
-
-def _read_json(path: Path, default: Any) -> Any:
-    if not path.exists():
-        return default
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return default
-
 
 @app.get("/api/environments")
 def get_environments() -> dict:
-    return _read_json(ENV_FILE, {"active": "", "environments": []})
+    return read_doc("environments", {"active": "", "environments": []})
 
 
 @app.put("/api/environments")
 def put_environments(store: dict = Body(...)) -> dict:
-    ENV_FILE.write_text(json.dumps(store, indent=2), encoding="utf-8")
+    write_doc("environments", store)
     return store
 
 
 @app.get("/api/schedules")
 def get_schedules() -> list:
-    return _read_json(SCHED_FILE, [])
+    return read_doc("schedules", [])
 
 
 @app.put("/api/schedules")
 def put_schedules(schedules: list = Body(...)) -> list:
-    SCHED_FILE.write_text(json.dumps(schedules, indent=2), encoding="utf-8")
+    write_doc("schedules", schedules)
     return schedules
 
 
@@ -344,7 +428,7 @@ _running_lock = threading.Lock()
 
 
 def _env_vars(name: str) -> dict:
-    store = _read_json(ENV_FILE, {"environments": []})
+    store = read_doc("environments", {"environments": []})
     for e in store.get("environments", []):
         if e.get("name") == name:
             return e.get("vars", {}) or {}
@@ -396,11 +480,11 @@ def run_schedule(sched: dict) -> dict:
     run = {"at": datetime.now().isoformat(), "passed": passed, "failed": failed, "ok": ok}
 
     # Persist lastRun back onto the schedule.
-    all_scheds = _read_json(SCHED_FILE, [])
+    all_scheds = read_doc("schedules", [])
     for s in all_scheds:
         if s.get("id") == sched.get("id"):
             s["lastRun"] = run
-    SCHED_FILE.write_text(json.dumps(all_scheds, indent=2), encoding="utf-8")
+    write_doc("schedules", all_scheds)
 
     mode = sched.get("notify", "always")
     if mode == "always" or (mode == "on-failure" and not ok):
@@ -411,7 +495,7 @@ def run_schedule(sched: dict) -> dict:
 
 
 def _on_minute(now: datetime) -> None:
-    for s in _read_json(SCHED_FILE, []):
+    for s in read_doc("schedules", []):
         if not s.get("enabled") or not s.get("moduleIds"):
             continue
         sid = s.get("id")
@@ -434,7 +518,7 @@ def _fire(sched: dict) -> None:
 
 @app.post("/api/schedules/{schedule_id}/run")
 def run_schedule_now(schedule_id: str) -> dict:
-    sched = next((s for s in _read_json(SCHED_FILE, []) if s.get("id") == schedule_id), None)
+    sched = next((s for s in read_doc("schedules", []) if s.get("id") == schedule_id), None)
     if not sched:
         raise HTTPException(status_code=404, detail="schedule not found")
     return run_schedule(sched)

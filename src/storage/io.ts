@@ -1,31 +1,28 @@
-// Import / export modules as JSON files using browser download / file input.
+// Import / export modules as human-friendly YAML files (browser download /
+// file input). JSON is also accepted on import (YAML is a JSON superset).
 
+import { dump as yamlDump, load as yamlLoad } from "js-yaml";
 import type { Module } from "../types/module";
 import { normalizeModule } from "../types/module";
 import { saveModule } from "./modules";
 
 const FORMAT_TAG = "block-sandbox.module";
 
-interface ExportEnvelope {
-  format: typeof FORMAT_TAG;
-  version: 1;
-  module: Module;
-}
-
 function serialize(m: Module): string {
-  const env: ExportEnvelope = { format: FORMAT_TAG, version: 1, module: m };
-  return JSON.stringify(env, null, 2);
+  return yamlDump({ format: FORMAT_TAG, version: 1, module: m }, { lineWidth: -1, noRefs: true });
 }
 
-/** Parse exported JSON (envelope or a bare module) into a normalized module. */
+/** Parse an exported module file (YAML or JSON; envelope or bare module). */
 export function parseModule(text: string): Module {
-  const data = JSON.parse(text);
-  const raw = data && data.format === FORMAT_TAG ? data.module : data;
+  const data = yamlLoad(text) as Record<string, unknown> | null;
+  const raw = (data && (data as { format?: string }).format === FORMAT_TAG
+    ? (data as { module: unknown }).module
+    : data) as (Partial<Module> & { name?: string }) | null;
   if (!raw || typeof raw.name !== "string") {
     throw new Error("Not a valid Block Sandbox module file.");
   }
   // Assign a fresh id so imports never overwrite an existing module.
-  return normalizeModule({ ...raw, id: crypto.randomUUID() });
+  return normalizeModule({ ...raw, id: crypto.randomUUID(), name: raw.name });
 }
 
 function safeFileName(name: string): string {
@@ -36,8 +33,8 @@ function safeFileName(name: string): string {
 
 export async function exportModule(m: Module): Promise<boolean> {
   const text = serialize(m);
-  const fileName = `${safeFileName(m.name)}.json`;
-  const blob = new Blob([text], { type: "application/json" });
+  const fileName = `${safeFileName(m.name)}.yml`;
+  const blob = new Blob([text], { type: "application/x-yaml" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -57,9 +54,9 @@ export async function exportModules(modules: Module[]): Promise<boolean> {
   const used = new Set<string>();
   for (const m of modules) {
     const folder = (m.folder || "").trim();
-    let path = `${folder ? folder + "/" : ""}${safeFileName(m.name)}.json`;
+    let path = `${folder ? folder + "/" : ""}${safeFileName(m.name)}.yml`;
     if (used.has(path)) {
-      path = `${folder ? folder + "/" : ""}${safeFileName(m.name)}-${m.id.slice(0, 6)}.json`;
+      path = `${folder ? folder + "/" : ""}${safeFileName(m.name)}-${m.id.slice(0, 6)}.yml`;
     }
     used.add(path);
     zip.file(path, serialize(m));
@@ -82,7 +79,7 @@ export async function importModulesViaPicker(): Promise<string[]> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "application/json,.json";
+    input.accept = ".yml,.yaml,.json,application/x-yaml,application/json";
     input.multiple = true;
     input.onchange = async () => {
       const files = Array.from(input.files ?? []);

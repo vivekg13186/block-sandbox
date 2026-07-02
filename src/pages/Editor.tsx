@@ -36,8 +36,11 @@ export default function Editor({ moduleId, onClose, onTitleChange }: Props) {
         setNotFound(true);
         return;
       }
-      setModule(m);
+      // Load the full module list first so the Blockly workspace can register
+      // module-call blocks before loading the saved graph (else those blocks
+      // would be pruned as "unknown").
       setAllModules(await listModules());
+      setModule(m);
     })();
   }, [id]);
 

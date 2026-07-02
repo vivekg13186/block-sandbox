@@ -570,23 +570,26 @@ function registerStaticBlocks(): void {
     return `for ${varName} in ${list}:\n${branch}`;
   };
 
+  // The default is passed as a lambda so it is only evaluated when actually
+  // needed — otherwise a function/module call in the "else" slot would run on
+  // every use (Python evaluates all call arguments eagerly).
   pythonGenerator.forBlock["logic_default_empty"] = (block) => {
     const fn = pythonGenerator.provideFunction_("bs_default_empty", [
       `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(v, d):`,
-      "    return d if (v is None or v == '' or v == [] or v == {} or v is False or v == 0) else v",
+      "    return d() if (v is None or v == '' or v == [] or v == {} or v is False or v == 0) else v",
     ]);
     const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
     const dflt = pythonGenerator.valueToCode(block, "DEFAULT", Order.NONE) || "None";
-    return [`${fn}(${value}, ${dflt})`, Order.FUNCTION_CALL];
+    return [`${fn}(${value}, lambda: ${dflt})`, Order.FUNCTION_CALL];
   };
   pythonGenerator.forBlock["logic_default_none"] = (block) => {
     const fn = pythonGenerator.provideFunction_("bs_default_none", [
       `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(v, d):`,
-      "    return d if v is None else v",
+      "    return d() if v is None else v",
     ]);
     const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
     const dflt = pythonGenerator.valueToCode(block, "DEFAULT", Order.NONE) || "None";
-    return [`${fn}(${value}, ${dflt})`, Order.FUNCTION_CALL];
+    return [`${fn}(${value}, lambda: ${dflt})`, Order.FUNCTION_CALL];
   };
 
   pythonGenerator.forBlock["log_value"] = (block) => {

@@ -258,12 +258,44 @@ function registerStaticBlocks(): void {
       tooltip: "Delete a file",
     },
     {
+      type: "for_each_row_of",
+      message0: "for each row %1 in %2",
+      args0: [
+        { type: "field_variable", name: "VAR", variable: "row" },
+        { type: "input_value", name: "LIST" },
+      ],
+      message1: "do %1",
+      args1: [{ type: "input_statement", name: "DO" }],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: "120",
+      tooltip: "Loop over each item (row) of a list, e.g. the rows from a Read Table module",
+    },
+    {
       type: "read_table",
       message0: "read rows from %1",
       args0: [{ type: "input_value", name: "PATH" }],
       output: null,
       colour: FILE_COLOUR,
       tooltip: "Read a CSV or Excel (.xlsx) file into a list of row objects keyed by header",
+    },
+    {
+      type: "write_excel",
+      message0: "write rows %1 to excel %2",
+      args0: [
+        { type: "input_value", name: "DATA" },
+        { type: "input_value", name: "PATH" },
+      ],
+      message1: "headers %1 sheet %2",
+      args1: [
+        { type: "input_value", name: "HEADERS" },
+        { type: "field_input", name: "SHEET", text: "" },
+      ],
+      previousStatement: null,
+      nextStatement: null,
+      colour: FILE_COLOUR,
+      tooltip: "Write an array of row objects/arrays to an .xlsx file (needs openpyxl)",
     },
     {
       type: "for_each_row",
@@ -495,12 +527,47 @@ function registerStaticBlocks(): void {
     const fn = readRowsFn();
     return [`${fn}(${path(block)})`, Order.FUNCTION_CALL];
   };
+  pythonGenerator.forBlock["write_excel"] = (block) => {
+    const fn = pythonGenerator.provideFunction_("bs_write_excel", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(path, data, headers=None, sheet=''):`,
+      "    import openpyxl",
+      "    wb = openpyxl.Workbook()",
+      "    ws = wb.active",
+      "    if str(sheet).strip():",
+      "        ws.title = str(sheet).strip()",
+      "    hdrs = list(headers) if headers else []",
+      "    rows_in = list(data) if data else []",
+      "    if not hdrs and rows_in and isinstance(rows_in[0], dict):",
+      "        hdrs = list(rows_in[0].keys())",
+      "    if hdrs:",
+      "        ws.append([str(h) for h in hdrs])",
+      "    for r in rows_in:",
+      "        if isinstance(r, dict):",
+      "            ws.append([r.get(h) for h in hdrs])",
+      "        elif isinstance(r, (list, tuple)):",
+      "            ws.append(list(r))",
+      "        else:",
+      "            ws.append([r])",
+      "    wb.save(str(path))",
+    ]);
+    const data = pythonGenerator.valueToCode(block, "DATA", Order.NONE) || "[]";
+    const headers = pythonGenerator.valueToCode(block, "HEADERS", Order.NONE) || "None";
+    const sheet = block.getFieldValue("SHEET") || "";
+    return `${fn}(${path(block)}, ${data}, ${headers}, ${JSON.stringify(sheet)})\n`;
+  };
   pythonGenerator.forBlock["for_each_row"] = (block) => {
     const fn = readRowsFn();
     const varName = pythonGenerator.getVariableName(block.getFieldValue("VAR"));
     let branch = pythonGenerator.statementToCode(block, "DO");
     if (!branch) branch = pythonGenerator.INDENT + "pass\n";
     return `for ${varName} in ${fn}(${path(block)}):\n${branch}`;
+  };
+  pythonGenerator.forBlock["for_each_row_of"] = (block) => {
+    const varName = pythonGenerator.getVariableName(block.getFieldValue("VAR"));
+    const list = pythonGenerator.valueToCode(block, "LIST", Order.NONE) || "[]";
+    let branch = pythonGenerator.statementToCode(block, "DO");
+    if (!branch) branch = pythonGenerator.INDENT + "pass\n";
+    return `for ${varName} in ${list}:\n${branch}`;
   };
 
   pythonGenerator.forBlock["logic_default_empty"] = (block) => {
@@ -822,6 +889,11 @@ export function buildToolbox(current: Module, all: Module[]): object {
           },
           {
             kind: "block",
+            type: "write_excel",
+            inputs: { PATH: { shadow: { type: "text", fields: { TEXT: "out.xlsx" } } } },
+          },
+          {
+            kind: "block",
             type: "for_each_row",
             inputs: { PATH: { shadow: { type: "text", fields: { TEXT: "data.csv" } } } },
           },
@@ -865,6 +937,7 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "controls_whileUntil" },
           { kind: "block", type: "controls_for" },
           { kind: "block", type: "controls_forEach" },
+          { kind: "block", type: "for_each_row_of" },
           { kind: "block", type: "controls_flow_statements" },
         ],
       },

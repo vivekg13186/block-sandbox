@@ -450,8 +450,15 @@ def health() -> dict:
 # --------------------------------------------------------------------------
 
 if STATIC_DIR.exists():
+    # index.html references content-hashed asset files, so it must never be
+    # cached — otherwise a browser keeps loading old JS/CSS after an update.
     @app.get("/")
     def index() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-store, must-revalidate"},
+        )
 
+    # Hashed assets (dist/assets/*) are safe to cache long-term; everything
+    # else falls through to here.
     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

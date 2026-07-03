@@ -50,6 +50,8 @@ export default function RunTab({ module, allModules }: Props) {
     const auto: string[] = [];
     if (program.code.includes("import openpyxl")) auto.push("openpyxl");
     if (program.code.includes("import requests")) auto.push("requests");
+    if (program.code.includes("from lxml")) auto.push("lxml");
+    if (program.code.includes(".cssselect(")) auto.push("cssselect");
     return [...new Set([...declared, ...auto])];
   }, [module, allModules, program.code]);
 

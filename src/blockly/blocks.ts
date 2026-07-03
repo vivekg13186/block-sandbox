@@ -29,6 +29,7 @@ export const JSON_COLOUR = 200;
 export const OBJ_COLOUR = 300;
 export const FILE_COLOUR = 45;
 export const HTTP_COLOUR = 195;
+export const XML_COLOUR = 290;
 
 let staticRegistered = false;
 
@@ -310,6 +311,14 @@ function registerStaticBlocks(): void {
       tooltip: "GET a URL and return the parsed JSON body",
     },
     {
+      type: "http_get_text",
+      message0: "GET page from %1",
+      args0: [{ type: "input_value", name: "URL" }],
+      output: null,
+      colour: HTTP_COLOUR,
+      tooltip: "GET a URL and return the raw response text (HTML)",
+    },
+    {
       type: "http_status",
       message0: "status of %1",
       args0: [{ type: "input_value", name: "RESP" }],
@@ -411,6 +420,93 @@ function registerStaticBlocks(): void {
       output: null,
       colour: "210",
       tooltip: "Return the value, or the default only when it is None",
+    },
+    {
+      type: "xml_get",
+      message0: "xml get text at %1 from %2",
+      args0: [
+        { type: "input_value", name: "SEL" },
+        { type: "input_value", name: "XML" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: XML_COLOUR,
+      tooltip: "Text of the first XPath match in an XML/HTML string",
+    },
+    {
+      type: "xml_get_all",
+      message0: "xml get all at %1 from %2",
+      args0: [
+        { type: "input_value", name: "SEL" },
+        { type: "input_value", name: "XML" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: XML_COLOUR,
+      tooltip: "List of texts for all XPath matches in an XML/HTML string",
+    },
+    {
+      type: "xml_set",
+      message0: "xml set %1 at %2 in %3",
+      args0: [
+        { type: "input_value", name: "VALUE" },
+        { type: "input_value", name: "SEL" },
+        { type: "input_value", name: "XML" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: XML_COLOUR,
+      tooltip: "Set the text of XPath-matched nodes; returns the updated XML string",
+    },
+    {
+      type: "css_get",
+      message0: "css get text at %1 from %2",
+      args0: [
+        { type: "input_value", name: "SEL" },
+        { type: "input_value", name: "XML" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: XML_COLOUR,
+      tooltip: "Text of the first CSS-selector match (HTML/XML)",
+    },
+    {
+      type: "css_get_all",
+      message0: "css get all at %1 from %2",
+      args0: [
+        { type: "input_value", name: "SEL" },
+        { type: "input_value", name: "XML" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: XML_COLOUR,
+      tooltip: "List of texts for all CSS-selector matches",
+    },
+    {
+      type: "css_attr",
+      message0: "css get attribute %1 at %2 from %3",
+      args0: [
+        { type: "input_value", name: "ATTR" },
+        { type: "input_value", name: "SEL" },
+        { type: "input_value", name: "XML" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: XML_COLOUR,
+      tooltip: "Attribute of the first CSS-selector match (e.g. href of a link)",
+    },
+    {
+      type: "css_set",
+      message0: "css set %1 at %2 in %3",
+      args0: [
+        { type: "input_value", name: "VALUE" },
+        { type: "input_value", name: "SEL" },
+        { type: "input_value", name: "XML" },
+      ],
+      inputsInline: true,
+      output: null,
+      colour: XML_COLOUR,
+      tooltip: "Set the text of CSS-selector-matched nodes; returns the updated markup",
     },
     {
       type: "url_join",
@@ -707,6 +803,11 @@ function registerStaticBlocks(): void {
     const url = pythonGenerator.valueToCode(block, "URL", Order.NONE) || "''";
     return [`${fn}("GET", ${url}, None, None, None, False).get("data")`, Order.FUNCTION_CALL];
   };
+  pythonGenerator.forBlock["http_get_text"] = (block) => {
+    const fn = httpFn();
+    const url = pythonGenerator.valueToCode(block, "URL", Order.NONE) || "''";
+    return [`${fn}("GET", ${url}, None, None, None, False).get("text")`, Order.FUNCTION_CALL];
+  };
   pythonGenerator.forBlock["http_basic_auth"] = (block) => {
     const user = pythonGenerator.valueToCode(block, "USER", Order.NONE) || "''";
     const pass = pythonGenerator.valueToCode(block, "PASS", Order.NONE) || "''";
@@ -755,6 +856,111 @@ function registerStaticBlocks(): void {
     const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
     const dflt = pythonGenerator.valueToCode(block, "DEFAULT", Order.NONE) || "None";
     return [`${fn}(${value}, lambda: ${dflt})`, Order.FUNCTION_CALL];
+  };
+
+  // XML / HTML by XPath selector (lxml). Handles both XML and HTML.
+  const xmlRootFn = () =>
+    pythonGenerator.provideFunction_("bs_xml_root", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(s):`,
+      "    from lxml import etree, html",
+      "    s = str(s)",
+      "    low = s.lower()",
+      "    if '<!doctype html' in low or '<html' in low:",
+      "        return html.fromstring(s)",
+      "    return etree.fromstring(s.encode('utf-8'), etree.XMLParser(recover=True))",
+    ]);
+  const nodeText = "(n if isinstance(n, str) else (n.text if getattr(n, 'text', None) is not None else ''.join(n.itertext())))";
+  pythonGenerator.forBlock["xml_get"] = (block) => {
+    const root = xmlRootFn();
+    const fn = pythonGenerator.provideFunction_("bs_xml_get", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(xml, xpath):`,
+      `    res = ${root}(xml).xpath(str(xpath))`,
+      "    if not res:",
+      "        return None",
+      "    n = res[0]",
+      `    return ${nodeText}`,
+    ]);
+    const sel = pythonGenerator.valueToCode(block, "SEL", Order.NONE) || "''";
+    const xml = pythonGenerator.valueToCode(block, "XML", Order.NONE) || "''";
+    return [`${fn}(${xml}, ${sel})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["xml_get_all"] = (block) => {
+    const root = xmlRootFn();
+    const fn = pythonGenerator.provideFunction_("bs_xml_get_all", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(xml, xpath):`,
+      `    return [${nodeText} for n in ${root}(xml).xpath(str(xpath))]`,
+    ]);
+    const sel = pythonGenerator.valueToCode(block, "SEL", Order.NONE) || "''";
+    const xml = pythonGenerator.valueToCode(block, "XML", Order.NONE) || "''";
+    return [`${fn}(${xml}, ${sel})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["xml_set"] = (block) => {
+    const root = xmlRootFn();
+    const fn = pythonGenerator.provideFunction_("bs_xml_set", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(xml, xpath, value):`,
+      "    from lxml import etree",
+      `    root = ${root}(xml)`,
+      "    for el in root.xpath(str(xpath)):",
+      "        if isinstance(el, str):",
+      "            continue",
+      "        el.text = str(value)",
+      "    return etree.tostring(root, encoding='unicode')",
+    ]);
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "''";
+    const sel = pythonGenerator.valueToCode(block, "SEL", Order.NONE) || "''";
+    const xml = pythonGenerator.valueToCode(block, "XML", Order.NONE) || "''";
+    return [`${fn}(${xml}, ${sel}, ${value})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["css_get"] = (block) => {
+    const root = xmlRootFn();
+    const fn = pythonGenerator.provideFunction_("bs_css_get", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(xml, css):`,
+      `    res = ${root}(xml).cssselect(str(css))`,
+      "    if not res:",
+      "        return None",
+      "    n = res[0]",
+      `    return ${nodeText}`,
+    ]);
+    const sel = pythonGenerator.valueToCode(block, "SEL", Order.NONE) || "''";
+    const xml = pythonGenerator.valueToCode(block, "XML", Order.NONE) || "''";
+    return [`${fn}(${xml}, ${sel})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["css_get_all"] = (block) => {
+    const root = xmlRootFn();
+    const fn = pythonGenerator.provideFunction_("bs_css_get_all", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(xml, css):`,
+      `    return [${nodeText} for n in ${root}(xml).cssselect(str(css))]`,
+    ]);
+    const sel = pythonGenerator.valueToCode(block, "SEL", Order.NONE) || "''";
+    const xml = pythonGenerator.valueToCode(block, "XML", Order.NONE) || "''";
+    return [`${fn}(${xml}, ${sel})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["css_attr"] = (block) => {
+    const root = xmlRootFn();
+    const fn = pythonGenerator.provideFunction_("bs_css_attr", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(xml, css, attr):`,
+      `    res = ${root}(xml).cssselect(str(css))`,
+      "    return res[0].get(str(attr)) if res else None",
+    ]);
+    const attr = pythonGenerator.valueToCode(block, "ATTR", Order.NONE) || "''";
+    const sel = pythonGenerator.valueToCode(block, "SEL", Order.NONE) || "''";
+    const xml = pythonGenerator.valueToCode(block, "XML", Order.NONE) || "''";
+    return [`${fn}(${xml}, ${sel}, ${attr})`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["css_set"] = (block) => {
+    const root = xmlRootFn();
+    const fn = pythonGenerator.provideFunction_("bs_css_set", [
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(xml, css, value):`,
+      "    from lxml import etree",
+      `    root = ${root}(xml)`,
+      "    for el in root.cssselect(str(css)):",
+      "        el.text = str(value)",
+      "    return etree.tostring(root, encoding='unicode')",
+    ]);
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "''";
+    const sel = pythonGenerator.valueToCode(block, "SEL", Order.NONE) || "''";
+    const xml = pythonGenerator.valueToCode(block, "XML", Order.NONE) || "''";
+    return [`${fn}(${xml}, ${sel}, ${value})`, Order.FUNCTION_CALL];
   };
 
   pythonGenerator.forBlock["url_join"] = (block) => {
@@ -1103,6 +1309,13 @@ export function buildToolbox(current: Module, all: Module[]): object {
           },
           {
             kind: "block",
+            type: "http_get_text",
+            inputs: {
+              URL: { shadow: { type: "text", fields: { TEXT: "https://example.com" } } },
+            },
+          },
+          {
+            kind: "block",
             type: "http_basic_auth",
             inputs: {
               USER: { shadow: { type: "text", fields: { TEXT: "user" } } },
@@ -1112,6 +1325,51 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "http_status" },
           { kind: "block", type: "http_body" },
           { kind: "block", type: "http_ok" },
+        ],
+      },
+      {
+        kind: "category",
+        name: "XML",
+        colour: String(XML_COLOUR),
+        contents: [
+          {
+            kind: "block",
+            type: "xml_get",
+            inputs: { SEL: { shadow: { type: "text", fields: { TEXT: "//name" } } } },
+          },
+          {
+            kind: "block",
+            type: "xml_get_all",
+            inputs: { SEL: { shadow: { type: "text", fields: { TEXT: "//item/@id" } } } },
+          },
+          {
+            kind: "block",
+            type: "xml_set",
+            inputs: { SEL: { shadow: { type: "text", fields: { TEXT: "//name" } } } },
+          },
+          {
+            kind: "block",
+            type: "css_get",
+            inputs: { SEL: { shadow: { type: "text", fields: { TEXT: "div.title" } } } },
+          },
+          {
+            kind: "block",
+            type: "css_get_all",
+            inputs: { SEL: { shadow: { type: "text", fields: { TEXT: "a" } } } },
+          },
+          {
+            kind: "block",
+            type: "css_attr",
+            inputs: {
+              ATTR: { shadow: { type: "text", fields: { TEXT: "href" } } },
+              SEL: { shadow: { type: "text", fields: { TEXT: "a" } } },
+            },
+          },
+          {
+            kind: "block",
+            type: "css_set",
+            inputs: { SEL: { shadow: { type: "text", fields: { TEXT: "div.title" } } } },
+          },
         ],
       },
       { kind: "sep" },

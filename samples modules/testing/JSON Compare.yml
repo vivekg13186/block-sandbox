@@ -1,0 +1,63 @@
+id: a1bce1b2-51e2-43b4-b9cf-6fbd9ddcd160
+name: JSON Compare
+description: Compare JSON/data against an expected spec using dirty-equals matchers
+  (IsPositiveInt, IsStr, IsNow, IsPartialDict, ...). expected is a Python expression;
+  returns equal + detail. See https://dirty-equals.helpmanual.io/
+kind: script
+folder: testing
+requirements:
+- dirty-equals
+inputs:
+- id: actual
+  name: actual
+  type: string
+  description: value or JSON string to check
+- id: expected
+  name: expected
+  type: string
+  description: Python expression using dirty-equals matchers (PascalCase)
+outputs:
+- id: equal
+  name: equal
+  type: boolean
+  description: ''
+- id: detail
+  name: detail
+  type: string
+  description: ''
+workspace: null
+script: |
+  # Compare JSON/data against an expected spec using dirty-equals.
+  #
+  # `actual`   : the value to check (a JSON string is parsed automatically).
+  # `expected` : a Python expression that may use dirty-equals matchers. Matcher
+  #              names are PascalCase, e.g. IsStr, IsPositiveInt, IsNow, IsList,
+  #              IsPartialDict:
+  #              {"id": IsPositiveInt, "name": IsStr, "created": IsNow(delta=3)}
+  # Outputs `equal` (bool) and `detail`.
+  #
+  # See https://dirty-equals.helpmanual.io/ for all matchers.
+  import json as _json
+  import dirty_equals as _de
+
+  _a = actual
+  if isinstance(_a, str):
+      _s = _a.strip()
+      if _s and _s[0] in "{[\"":
+          try:
+              _a = _json.loads(_a)
+          except Exception:
+              pass
+
+  # Expose every dirty-equals matcher to the expression.
+  _ns = {k: getattr(_de, k) for k in dir(_de) if not k.startswith("_")}
+  try:
+      _expected = eval(str(expected), _ns) if isinstance(expected, str) else expected
+  except Exception as _e:
+      equal = False
+      detail = "invalid expected spec: %s: %s (matcher names are PascalCase, e.g. IsStr)" % (type(_e).__name__, _e)
+  else:
+      equal = (_a == _expected)
+      detail = "match" if equal else ("mismatch: %r != %r" % (_a, _expected))
+createdAt: '2026-07-10T21:56:32.009837'
+updatedAt: '2026-07-10T21:56:32.009837'

@@ -803,6 +803,113 @@ input.invalid {
   gap: 12px;
 }
 
+/* Git panel */
+.git-modal {
+  width: 820px;
+  max-width: 94vw;
+  height: 78vh;
+  max-height: 86vh;
+}
+.git-branch {
+  font-size: 12px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.git-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 12px;
+}
+.git-changes {
+  border-right: 1px solid var(--border);
+  padding-right: 8px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.git-change {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.git-change:hover {
+  background: var(--bg-elev-2);
+}
+.git-change.active {
+  background: var(--bg-elev-2);
+}
+.git-path {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.git-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.git-badge.added {
+  color: #4ad08a;
+  border: 1px solid #2e6b4d;
+}
+.git-badge.modified {
+  color: #e2b341;
+  border: 1px solid #6b5a2e;
+}
+.git-badge.deleted,
+.git-badge.renamed {
+  color: #ffc9cf;
+  border: 1px solid var(--danger);
+}
+.git-diff {
+  overflow: auto;
+  min-width: 0;
+}
+.diff-view {
+  margin: 0;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.diff-view > div {
+  padding: 0 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.diff-add {
+  background: rgba(74, 208, 138, 0.12);
+  color: #9be3bd;
+}
+.diff-del {
+  background: rgba(255, 93, 108, 0.12);
+  color: #ffc9cf;
+}
+.diff-hunk {
+  color: #7aa2ff;
+}
+.diff-meta {
+  color: var(--muted);
+}
+.git-commit {
+  display: flex;
+  gap: 8px;
+}
+.git-commit input {
+  flex: 1;
+}
+
 /* Environment manager */
 .env-modal {
   width: 640px;

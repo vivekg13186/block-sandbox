@@ -532,6 +532,50 @@ def run_schedule_now(schedule_id: str) -> dict:
     return run_schedule(sched)
 
 
+# --------------------------------------------------------------------------
+# Git (optional): if the data dir is a git repo, expose status / diff / commit
+# so flows (YAML modules) can be version-controlled from the UI.
+# --------------------------------------------------------------------------
+
+def _git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(DATA), *args], capture_output=True, text=True)
+
+
+@app.get("/api/git/status")
+def git_status() -> dict:
+    top = _git("rev-parse", "--show-toplevel")
+    if top.returncode != 0:
+        return {"repo": False}
+    branch = _git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    # Surface untracked files as additions so they show in diffs.
+    _git("add", "-N", ".")
+    changes = []
+    for line in _git("status", "--porcelain").stdout.splitlines():
+        if not line.strip():
+            continue
+        changes.append({"status": line[:2].strip(), "path": line[3:]})
+    return {"repo": True, "root": top.stdout.strip(), "branch": branch, "changes": changes}
+
+
+@app.get("/api/git/diff")
+def git_diff(path: Optional[str] = None) -> dict:
+    if _git("rev-parse", "--show-toplevel").returncode != 0:
+        raise HTTPException(status_code=400, detail="not a git repository")
+    _git("add", "-N", ".")
+    args = ["diff", "--", path] if path else ["diff"]
+    return {"diff": _git(*args).stdout}
+
+
+@app.post("/api/git/commit")
+def git_commit(body: dict = Body(...)) -> dict:
+    if _git("rev-parse", "--show-toplevel").returncode != 0:
+        raise HTTPException(status_code=400, detail="not a git repository")
+    message = str(body.get("message") or "").strip() or "Update flows"
+    _git("add", "-A")
+    proc = _git("commit", "-m", message)
+    return {"ok": proc.returncode == 0, "output": (proc.stdout + proc.stderr).strip()}
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True}

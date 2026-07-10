@@ -14,8 +14,12 @@ dist-ssr
 
 # Bundle output + server runtime data
 build/
+server/static/
 server/data/
-server/__pycache__/
+
+# Python caches
+**/__pycache__/
+*.py[cod]
 
 # Editor directories and files
 .vscode/*

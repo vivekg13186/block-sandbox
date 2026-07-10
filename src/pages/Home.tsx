@@ -19,6 +19,7 @@ import {
   X,
   Variable,
   Clock,
+  GitBranch,
 } from "lucide-react";
 import type { Module, ModuleKind } from "../types/module";
 import { newModule, normalizeFolder } from "../types/module";
@@ -31,6 +32,8 @@ import {
 } from "../storage/io";
 import { TextPrompt, ConfirmDialog } from "../components/Dialog";
 import EnvManager from "../components/EnvManager";
+import GitPanel from "../components/GitPanel";
+import { gitStatus } from "../storage/git";
 
 type PromptState = {
   title: string;
@@ -57,6 +60,8 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
 
   const [path, setPath] = useState(""); // current folder
   const [envOpen, setEnvOpen] = useState(false);
+  const [gitOpen, setGitOpen] = useState(false);
+  const [hasGit, setHasGit] = useState(false);
   const [pendingFolders, setPendingFolders] = useState<Set<string>>(new Set());
   const [selMods, setSelMods] = useState<Set<string>>(new Set());
   const [selFolders, setSelFolders] = useState<Set<string>>(new Set());
@@ -68,6 +73,7 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
 
   useEffect(() => {
     refresh();
+    gitStatus().then((s) => setHasGit(s.repo));
   }, []);
 
   const clearSelection = () => {
@@ -293,6 +299,11 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
           <h1>Block Sandbox</h1>
         </div>
         <div className="head-actions">
+          {hasGit && (
+            <button className="btn" onClick={() => setGitOpen(true)} title="Version control">
+              <GitBranch size={16} /> Git
+            </button>
+          )}
           <button className="btn" onClick={onOpenScheduler} title="Scheduler">
             <Clock size={16} /> Scheduler
           </button>
@@ -466,6 +477,7 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
         />
       )}
       {envOpen && <EnvManager onClose={() => setEnvOpen(false)} />}
+      {gitOpen && <GitPanel onClose={() => setGitOpen(false)} onCommitted={refresh} />}
     </div>
   );
 }

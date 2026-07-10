@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { X, GitBranch, RefreshCw, Loader2, Check } from "lucide-react";
+import { X, GitBranch, RefreshCw, Loader2, Check, Upload, Download } from "lucide-react";
 import {
   gitStatus,
   gitDiff,
   gitCommit,
+  gitPush,
+  gitPull,
   type GitStatus,
   type GitChange,
 } from "../storage/git";
@@ -28,6 +30,9 @@ export default function GitPanel({ onClose, onCommitted }: Props) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [committed, setCommitted] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const refresh = async () => {
     const s = await gitStatus();
@@ -63,6 +68,32 @@ export default function GitPanel({ onClose, onCommitted }: Props) {
       }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const push = async () => {
+    setPushing(true);
+    setNotice("");
+    try {
+      const res = await gitPush();
+      setNotice(res.ok ? "Pushed to remote." : res.output || "Push failed.");
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const pull = async () => {
+    setPulling(true);
+    setNotice("");
+    try {
+      const res = await gitPull();
+      setNotice(res.ok ? res.output || "Up to date." : res.output || "Pull failed.");
+      if (res.ok) {
+        await refresh();
+        onCommitted?.(); // reload modules in case files changed
+      }
+    } finally {
+      setPulling(false);
     }
   };
 
@@ -134,22 +165,31 @@ export default function GitPanel({ onClose, onCommitted }: Props) {
         )}
 
         {status?.repo && (
-          <div className="git-commit">
-            <input
-              placeholder="Commit message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && changes.length > 0 && commit()}
-            />
-            <button
-              className="btn primary"
-              disabled={busy || changes.length === 0}
-              onClick={commit}
-            >
-              {busy ? <Loader2 size={15} className="spin" /> : committed ? <Check size={15} /> : null}
-              {committed ? "Committed" : "Commit"}
-            </button>
-          </div>
+          <>
+            {notice && <div className="git-notice muted">{notice}</div>}
+            <div className="git-commit">
+              <input
+                placeholder="Commit message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && changes.length > 0 && commit()}
+              />
+              <button
+                className="btn primary"
+                disabled={busy || changes.length === 0}
+                onClick={commit}
+              >
+                {busy ? <Loader2 size={15} className="spin" /> : committed ? <Check size={15} /> : null}
+                {committed ? "Committed" : "Commit"}
+              </button>
+              <button className="btn" disabled={pulling} onClick={pull} title="git pull (fast-forward)">
+                {pulling ? <Loader2 size={15} className="spin" /> : <Download size={15} />} Pull
+              </button>
+              <button className="btn" disabled={pushing} onClick={push} title="git push">
+                {pushing ? <Loader2 size={15} className="spin" /> : <Upload size={15} />} Push
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -30,3 +30,11 @@ export async function gitDiff(path?: string): Promise<string> {
 export async function gitCommit(message: string): Promise<{ ok: boolean; output: string }> {
   return apiSend("POST", "/git/commit", { message });
 }
+
+export async function gitPush(): Promise<{ ok: boolean; output: string }> {
+  return apiSend("POST", "/git/push", {});
+}
+
+export async function gitPull(): Promise<{ ok: boolean; output: string }> {
+  return apiSend("POST", "/git/pull", {});
+}

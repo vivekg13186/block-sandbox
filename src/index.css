@@ -909,6 +909,13 @@ input.invalid {
 .git-commit input {
   flex: 1;
 }
+.git-notice {
+  font-size: 12px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  max-height: 60px;
+  overflow: auto;
+}
 
 /* Environment manager */
 .env-modal {

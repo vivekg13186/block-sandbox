@@ -576,6 +576,34 @@ def git_commit(body: dict = Body(...)) -> dict:
     return {"ok": proc.returncode == 0, "output": (proc.stdout + proc.stderr).strip()}
 
 
+@app.post("/api/git/pull")
+def git_pull() -> dict:
+    if _git("rev-parse", "--show-toplevel").returncode != 0:
+        raise HTTPException(status_code=400, detail="not a git repository")
+    proc = _git("pull", "--ff-only")
+    return {"ok": proc.returncode == 0, "output": (proc.stdout + proc.stderr).strip()}
+
+
+@app.post("/api/git/pull")
+def git_pull() -> dict:
+    if _git("rev-parse", "--show-toplevel").returncode != 0:
+        raise HTTPException(status_code=400, detail="not a git repository")
+    proc = _git("pull", "--ff-only")
+    return {"ok": proc.returncode == 0, "output": (proc.stdout + proc.stderr).strip()}
+
+
+@app.post("/api/git/push")
+def git_push() -> dict:
+    if _git("rev-parse", "--show-toplevel").returncode != 0:
+        raise HTTPException(status_code=400, detail="not a git repository")
+    # Try a normal push; if no upstream is set, set it to the current branch.
+    proc = _git("push")
+    if proc.returncode != 0 and "no upstream" in (proc.stderr + proc.stdout).lower():
+        branch = _git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+        proc = _git("push", "-u", "origin", branch or "HEAD")
+    return {"ok": proc.returncode == 0, "output": (proc.stdout + proc.stderr).strip()}
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True}

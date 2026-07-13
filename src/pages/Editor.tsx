@@ -13,11 +13,12 @@ type SaveState = "idle" | "saving" | "saved";
 
 interface Props {
   moduleId: string;
+  active?: boolean;
   onClose: () => void;
   onTitleChange?: (id: string, title: string) => void;
 }
 
-export default function Editor({ moduleId, onClose, onTitleChange }: Props) {
+export default function Editor({ moduleId, active, onClose, onTitleChange }: Props) {
   const id = moduleId;
   const [module, setModule] = useState<Module | null>(null);
   const [allModules, setAllModules] = useState<Module[]>([]);
@@ -48,6 +49,14 @@ export default function Editor({ moduleId, onClose, onTitleChange }: Props) {
   useEffect(() => {
     if (module) onTitleChange?.(id, module.name || "Untitled module");
   }, [module?.name, id, onTitleChange]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When this tab becomes active, refresh the module list so module-call blocks
+  // reflect edits made to other modules while this tab was in the background.
+  useEffect(() => {
+    if (active && module) {
+      listModules().then(setAllModules);
+    }
+  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced persistence whenever the module changes.
   const persist = useCallback((m: Module) => {

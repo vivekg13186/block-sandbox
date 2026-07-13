@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as Blockly from "blockly";
 import "blockly/blocks";
 import { WorkspaceSearch } from "@blockly/plugin-workspace-search";
@@ -139,6 +139,29 @@ export default function BlocklyWorkspace({ module, allModules, onChange, onReady
     // Rebuild only when the module identity changes (not on every keystroke).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [module.id]);
+
+  // When this module's own inputs/outputs, or any other module's call-block
+  // signature, changes, re-register the block definitions and refresh the
+  // toolbox in place — so newly added blocks reflect the latest shape without
+  // needing to close and reopen the tab.
+  const sig = useMemo(() => {
+    const ports = (ps: Module["inputs"]) => ps.map((p) => `${p.id}:${p.name}`).join(",");
+    const mine = `${ports(module.inputs)}|${ports(module.outputs)}`;
+    const others = allModules.map((m) => `${m.id}:${m.name}:${ports(m.inputs)}`).join(";");
+    return `${mine}||${others}`;
+  }, [module.inputs, module.outputs, module.name, allModules]);
+
+  useEffect(() => {
+    const ws = wsRef.current;
+    if (!ws) return;
+    registerDynamicBlocks(module, allModules);
+    try {
+      ws.updateToolbox(buildToolbox(module, allModules) as Blockly.utils.toolbox.ToolboxDefinition);
+    } catch (e) {
+      console.error("Failed to refresh toolbox", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig]);
 
   return <div ref={containerRef} className="blockly-host" />;
 }

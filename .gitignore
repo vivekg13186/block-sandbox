@@ -14,7 +14,6 @@ dist-ssr
 
 # Bundle output + server runtime data
 build/
-server/static/
 server/data/
 
 # Python caches

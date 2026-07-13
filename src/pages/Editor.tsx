@@ -154,6 +154,7 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
             <DiagramTab
               module={module}
               allModules={allModules}
+              active={active !== false}
               onWorkspaceChange={(workspace) => applyPatch({ workspace })}
             />
           ))}

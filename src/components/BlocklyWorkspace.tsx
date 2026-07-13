@@ -71,6 +71,7 @@ export default function BlocklyWorkspace({ module, allModules, onChange, onReady
   onReadyRef.current = onReady;
   const loadingRef = useRef(false);
   const debounceRef = useRef<number | undefined>(undefined);
+  const pendingRef = useRef(false);
 
   // Inject / re-inject when the open module changes.
   useEffect(() => {
@@ -113,8 +114,10 @@ export default function BlocklyWorkspace({ module, allModules, onChange, onReady
     // Report edits (debounced), ignoring UI-only and programmatic-load events.
     const listener = (ev: Blockly.Events.Abstract) => {
       if (loadingRef.current || ev.isUiEvent) return;
+      pendingRef.current = true;
       window.clearTimeout(debounceRef.current);
       debounceRef.current = window.setTimeout(() => {
+        pendingRef.current = false;
         const state = Blockly.serialization.workspaces.save(ws);
         onChangeRef.current(state);
       }, 400);
@@ -131,6 +134,16 @@ export default function BlocklyWorkspace({ module, allModules, onChange, onReady
       window.clearTimeout(t);
       window.removeEventListener("resize", onResize);
       ws.removeChangeListener(listener);
+      // Flush a pending (debounced) edit so unmounting on tab switch doesn't
+      // drop the last change.
+      if (pendingRef.current) {
+        try {
+          onChangeRef.current(Blockly.serialization.workspaces.save(ws));
+        } catch {
+          /* ignore */
+        }
+        pendingRef.current = false;
+      }
       search.dispose();
       ws.dispose();
       wsRef.current = null;

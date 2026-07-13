@@ -3,30 +3,24 @@ import ReactDOM from "react-dom/client";
 import AppShell from "./AppShell";
 import "./index.css";
 
-// Disable browser autofill / autosuggest / spellcheck on all text inputs,
-// including ones added later (modals, dynamic rows).
-function hardenInput(el: Element) {
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-    el.setAttribute("autocomplete", "off");
-    el.setAttribute("autocorrect", "off");
-    el.setAttribute("autocapitalize", "off");
-    el.spellcheck = false;
-  }
-}
-function hardenAll(root: ParentNode) {
-  root.querySelectorAll?.("input, textarea").forEach(hardenInput);
-}
-hardenAll(document);
-new MutationObserver((mutations) => {
-  for (const m of mutations) {
-    m.addedNodes.forEach((node) => {
-      if (node instanceof Element) {
-        hardenInput(node);
-        hardenAll(node);
-      }
-    });
-  }
-}).observe(document.documentElement, { childList: true, subtree: true });
+// Disable browser autofill / autosuggest / spellcheck on text inputs. A single
+// `focusin` listener hardens each field the first time it's focused — this is
+// O(1) per focus, unlike a document-wide MutationObserver which fires on every
+// DOM change (Blockly/CodeMirror churn the DOM constantly and would make it a
+// growing CPU cost).
+document.addEventListener(
+  "focusin",
+  (e) => {
+    const el = e.target;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      el.setAttribute("autocomplete", "off");
+      el.setAttribute("autocorrect", "off");
+      el.setAttribute("autocapitalize", "off");
+      el.spellcheck = false;
+    }
+  },
+  true
+);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

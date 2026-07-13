@@ -98,7 +98,12 @@ export default function AppShell() {
               className="shell-pane"
               style={{ display: active === t.key ? "flex" : "none" }}
             >
-              <Editor moduleId={t.id!} onClose={() => close(t.key)} onTitleChange={setTitle} />
+              <Editor
+                moduleId={t.id!}
+                active={active === t.key}
+                onClose={() => close(t.key)}
+                onTitleChange={setTitle}
+              />
             </div>
           ))}
 

@@ -7,10 +7,12 @@ import type { Module } from "../types/module";
 interface Props {
   module: Module;
   allModules: Module[];
+  /** Only mount the (heavy) Blockly workspace while this editor tab is active. */
+  active?: boolean;
   onWorkspaceChange: (workspace: object) => void;
 }
 
-export default function DiagramTab({ module, allModules, onWorkspaceChange }: Props) {
+export default function DiagramTab({ module, allModules, active = true, onWorkspaceChange }: Props) {
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -48,16 +50,18 @@ export default function DiagramTab({ module, allModules, onWorkspaceChange }: Pr
         </span>
       </div>
       <div className="diagram-canvas">
-        <BlocklyWorkspace
-          key={module.id}
-          module={module}
-          allModules={allModules}
-          onChange={onWorkspaceChange}
-          onReady={(w) => {
-            wsRef.current = w;
-            setReady(!!w);
-          }}
-        />
+        {active ? (
+          <BlocklyWorkspace
+            key={module.id}
+            module={module}
+            allModules={allModules}
+            onChange={onWorkspaceChange}
+            onReady={(w) => {
+              wsRef.current = w;
+              setReady(!!w);
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );

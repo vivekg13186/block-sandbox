@@ -509,6 +509,29 @@ function registerStaticBlocks(): void {
       tooltip: "Set the text of CSS-selector-matched nodes; returns the updated markup",
     },
     {
+      type: "gen_uuid",
+      message0: "new uuid",
+      output: null,
+      colour: "160",
+      tooltip: "Generate a random UUID4 string",
+    },
+    {
+      type: "to_base64",
+      message0: "base64 encode %1",
+      args0: [{ type: "input_value", name: "VALUE" }],
+      output: null,
+      colour: "160",
+      tooltip: "Base64-encode a string",
+    },
+    {
+      type: "from_base64",
+      message0: "base64 decode %1",
+      args0: [{ type: "input_value", name: "VALUE" }],
+      output: null,
+      colour: "160",
+      tooltip: "Decode a base64 string to text",
+    },
+    {
       type: "url_join",
       message0: "join url %1 / %2",
       args0: [
@@ -961,6 +984,22 @@ function registerStaticBlocks(): void {
     const sel = pythonGenerator.valueToCode(block, "SEL", Order.NONE) || "''";
     const xml = pythonGenerator.valueToCode(block, "XML", Order.NONE) || "''";
     return [`${fn}(${xml}, ${sel}, ${value})`, Order.FUNCTION_CALL];
+  };
+
+  pythonGenerator.forBlock["gen_uuid"] = () => [
+    "str(__import__('uuid').uuid4())",
+    Order.FUNCTION_CALL,
+  ];
+  pythonGenerator.forBlock["to_base64"] = (block) => {
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "''";
+    return [`__import__('base64').b64encode(str(${value}).encode()).decode()`, Order.FUNCTION_CALL];
+  };
+  pythonGenerator.forBlock["from_base64"] = (block) => {
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "''";
+    return [
+      `__import__('base64').b64decode(str(${value})).decode('utf-8', 'replace')`,
+      Order.FUNCTION_CALL,
+    ];
   };
 
   pythonGenerator.forBlock["url_join"] = (block) => {
@@ -1435,6 +1474,17 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "text" },
           { kind: "block", type: "code_text" },
           { kind: "block", type: "text_join" },
+          { kind: "block", type: "gen_uuid" },
+          {
+            kind: "block",
+            type: "to_base64",
+            inputs: { VALUE: { shadow: { type: "text", fields: { TEXT: "hello" } } } },
+          },
+          {
+            kind: "block",
+            type: "from_base64",
+            inputs: { VALUE: { shadow: { type: "text", fields: { TEXT: "aGVsbG8=" } } } },
+          },
           {
             kind: "block",
             type: "url_join",

@@ -1189,3 +1189,131 @@ input.invalid {
 .script-editor-wrap .cm-editor.cm-focused {
   outline: none;
 }
+
+/* Dashboard */
+.dashboard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.dash-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.dash-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+.dash-empty {
+  padding: 24px 4px;
+}
+.dash-error {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: #ff8f8f;
+  background: rgba(255, 80, 80, 0.08);
+  border: 1px solid rgba(255, 80, 80, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+.dash-error pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.widget {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.widget-title {
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev-2);
+}
+.widget-body {
+  padding: 14px;
+  min-height: 0;
+}
+.w-chart {
+  width: 100%;
+}
+.w-metric {
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+  word-break: break-word;
+}
+.w-text {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.w-json {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text);
+}
+.w-html {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  overflow: auto;
+  max-height: 360px;
+}
+.w-table-wrap {
+  overflow: auto;
+  max-height: 360px;
+}
+.w-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+.w-table th,
+.w-table td {
+  border: 1px solid var(--border);
+  padding: 5px 9px;
+  text-align: left;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-table th {
+  background: var(--bg-elev-2);
+  color: var(--muted);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+.recharts-cartesian-axis-tick text,
+.recharts-text {
+  fill: var(--muted);
+}

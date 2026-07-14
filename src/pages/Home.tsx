@@ -9,6 +9,7 @@ import {
   Copy,
   Code,
   LayoutGrid,
+  LayoutDashboard,
   Folder,
   FolderPlus,
   FolderInput,
@@ -139,9 +140,14 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
 
   const create = (kind: ModuleKind) => {
     setPrompt({
-      title: kind === "script" ? "New script module" : "New module",
+      title:
+        kind === "script"
+          ? "New script module"
+          : kind === "dashboard"
+            ? "New dashboard"
+            : "New module",
       hint: 'Name it; use "/" to nest into sub-folders.',
-      initial: "new-module",
+      initial: kind === "dashboard" ? "new-dashboard" : "new-module",
       onSubmit: async (name) => {
         setPrompt(null);
         const folder = normalizeFolder([path, parentOf(name)].filter(Boolean).join("/"));
@@ -319,6 +325,9 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
           <button className="btn" onClick={() => create("script")} title="New script module">
             <Code size={16} /> Script
           </button>
+          <button className="btn" onClick={() => create("dashboard")} title="New dashboard">
+            <LayoutDashboard size={16} /> Dashboard
+          </button>
           <button className="btn primary" onClick={() => create("blocks")}>
             <Plus size={16} /> Module
           </button>
@@ -431,12 +440,16 @@ export default function Home({ onOpenModule, onOpenScheduler }: Props) {
                 >
                   {m.kind === "script" ? (
                     <Code size={17} className="muted" />
+                  ) : m.kind === "dashboard" ? (
+                    <LayoutDashboard size={17} className="muted" />
                   ) : (
                     <LayoutGrid size={17} className="muted" />
                   )}
                   <span className="row-name">{m.name || "Untitled module"}</span>
                   <span className="row-meta muted">
-                    {m.inputs.length} in · {m.outputs.length} out
+                    {m.kind === "dashboard"
+                      ? "dashboard"
+                      : `${m.inputs.length} in · ${m.outputs.length} out`}
                   </span>
                 </button>
                 <span className="row-actions">

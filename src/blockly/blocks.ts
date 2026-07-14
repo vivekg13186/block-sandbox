@@ -30,6 +30,7 @@ export const OBJ_COLOUR = 300;
 export const FILE_COLOUR = 45;
 export const HTTP_COLOUR = 195;
 export const XML_COLOUR = 290;
+export const WIDGET_COLOUR = 260;
 
 let staticRegistered = false;
 
@@ -577,6 +578,95 @@ function registerStaticBlocks(): void {
       colour: "#6b7280",
       tooltip: "Print a labeled value to the run output (log)",
     },
+    // --- Dashboard widgets: append a render-spec to the `widgets` list. ---
+    {
+      type: "widget_table",
+      message0: "table widget %1 rows %2",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "Table" },
+        { type: "input_value", name: "ROWS" },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Show a list of objects (rows) as a table on the dashboard",
+    },
+    {
+      type: "widget_metric",
+      message0: "metric widget %1 = %2",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "Metric" },
+        { type: "input_value", name: "VALUE" },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Show a single value as a big number on the dashboard",
+    },
+    {
+      type: "widget_text",
+      message0: "text widget %1 = %2",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "Text" },
+        { type: "input_value", name: "TEXT" },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Show a block of text / markdown on the dashboard",
+    },
+    {
+      type: "widget_chart",
+      message0: "%1 chart widget %2 data %3",
+      args0: [
+        {
+          type: "field_dropdown",
+          name: "CHART",
+          options: [
+            ["bar", "bar"],
+            ["line", "line"],
+            ["area", "area"],
+            ["pie", "pie"],
+          ],
+        },
+        { type: "field_input", name: "TITLE", text: "Chart" },
+        { type: "input_value", name: "DATA" },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Chart a list of {label, value} objects on the dashboard",
+    },
+    {
+      type: "widget_json",
+      message0: "json widget %1 = %2",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "JSON" },
+        { type: "input_value", name: "VALUE" },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Pretty-print any value as JSON on the dashboard",
+    },
+    {
+      type: "widget_html",
+      message0: "html widget %1 = %2",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "HTML" },
+        { type: "input_value", name: "HTML" },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Render an HTML string on the dashboard",
+    },
   ]);
 
   pythonGenerator.forBlock["env_get"] = (block) => {
@@ -881,6 +971,36 @@ function registerStaticBlocks(): void {
     return [`${fn}(${value}, lambda: ${dflt})`, Order.FUNCTION_CALL];
   };
 
+  // Dashboard widgets: append a render-spec dict to the module's `widgets` list.
+  // (Dashboard-kind modules seed `widgets = []`; see codegen.ts.)
+  const widgetTitle = (block: Blockly.Block) =>
+    JSON.stringify(block.getFieldValue("TITLE") || "");
+  pythonGenerator.forBlock["widget_table"] = (block) => {
+    const rows = pythonGenerator.valueToCode(block, "ROWS", Order.NONE) || "[]";
+    return `widgets.append({"type": "table", "title": ${widgetTitle(block)}, "rows": ${rows}})\n`;
+  };
+  pythonGenerator.forBlock["widget_metric"] = (block) => {
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
+    return `widgets.append({"type": "metric", "title": ${widgetTitle(block)}, "value": ${value}})\n`;
+  };
+  pythonGenerator.forBlock["widget_text"] = (block) => {
+    const text = pythonGenerator.valueToCode(block, "TEXT", Order.NONE) || "''";
+    return `widgets.append({"type": "text", "title": ${widgetTitle(block)}, "text": ${text}})\n`;
+  };
+  pythonGenerator.forBlock["widget_chart"] = (block) => {
+    const data = pythonGenerator.valueToCode(block, "DATA", Order.NONE) || "[]";
+    const chart = JSON.stringify(block.getFieldValue("CHART") || "bar");
+    return `widgets.append({"type": "chart", "chart": ${chart}, "title": ${widgetTitle(block)}, "data": ${data}})\n`;
+  };
+  pythonGenerator.forBlock["widget_json"] = (block) => {
+    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
+    return `widgets.append({"type": "json", "title": ${widgetTitle(block)}, "value": ${value}})\n`;
+  };
+  pythonGenerator.forBlock["widget_html"] = (block) => {
+    const html = pythonGenerator.valueToCode(block, "HTML", Order.NONE) || "''";
+    return `widgets.append({"type": "html", "title": ${widgetTitle(block)}, "html": ${html}})\n`;
+  };
+
   // XML / HTML by XPath selector (lxml). Handles both XML and HTML.
   const xmlRootFn = () =>
     pythonGenerator.provideFunction_("bs_xml_root", [
@@ -1115,7 +1235,16 @@ export function registerDynamicBlocks(current: Module, all: Module[]): void {
     };
   }
 
-  if (defs.length) Blockly.common.defineBlocksWithJsonArray(defs);
+  if (defs.length) {
+    // These data-driven blocks are re-registered whenever a module's ports or
+    // name change. Drop any prior definition first so Blockly doesn't warn
+    // ("Block definition X overwrites previous definition") on every refresh.
+    for (const d of defs) {
+      const t = (d as { type?: string }).type;
+      if (t && Blockly.Blocks[t]) delete Blockly.Blocks[t];
+    }
+    Blockly.common.defineBlocksWithJsonArray(defs);
+  }
 }
 
 interface ModTreeNode {
@@ -1165,9 +1294,37 @@ export function buildToolbox(current: Module, all: Module[]): object {
   const outputBlocks = current.outputs.map((p) => ({ kind: "block", type: outType(p.id) }));
   const moduleContents = buildModuleCategories(current, all);
 
+  const isDash = current.kind === "dashboard";
+  const widgetCategory = {
+    kind: "category",
+    name: "Widgets",
+    colour: String(WIDGET_COLOUR),
+    contents: [
+      {
+        kind: "block",
+        type: "widget_table",
+        inputs: { ROWS: { shadow: { type: "object_empty" } } },
+      },
+      { kind: "block", type: "widget_metric" },
+      {
+        kind: "block",
+        type: "widget_text",
+        inputs: { TEXT: { shadow: { type: "text", fields: { TEXT: "" } } } },
+      },
+      { kind: "block", type: "widget_chart" },
+      { kind: "block", type: "widget_json" },
+      {
+        kind: "block",
+        type: "widget_html",
+        inputs: { HTML: { shadow: { type: "text", fields: { TEXT: "<b>hello</b>" } } } },
+      },
+    ],
+  };
+
   return {
     kind: "categoryToolbox",
     contents: [
+      ...(isDash ? [widgetCategory] : []),
       {
         kind: "category",
         name: "Inputs",

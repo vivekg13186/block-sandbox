@@ -38,21 +38,27 @@ function moduleBody(m: Module, all: Module[]): string {
 
 /** Compile one module to a Python function definition. */
 export function generateModuleFunction(m: Module, all: Module[]): string {
+  const isDash = m.kind === "dashboard";
   const args = m.inputs.map(portIdent).join(", ");
   // Initialize outputs to None, but never clobber an input that shares the
   // same name (then the output simply defaults to the input value).
+  // Dashboards instead seed a `widgets` list that widget blocks append to.
   const inputIdents = new Set(m.inputs.map(portIdent));
-  const initOuts = m.outputs
-    .filter((p) => !inputIdents.has(portIdent(p)))
-    .map((p) => `${portIdent(p)} = None`)
-    .join("\n");
+  const initOuts = isDash
+    ? "widgets = []"
+    : m.outputs
+        .filter((p) => !inputIdents.has(portIdent(p)))
+        .map((p) => `${portIdent(p)} = None`)
+        .join("\n");
   const body = moduleBody(m, all);
 
   let combined = [initOuts, body].filter(Boolean).join("\n");
   if (!combined.trim()) combined = "pass";
 
   let ret = "";
-  if (m.outputs.length === 1) {
+  if (isDash) {
+    ret = 'return {"widgets": widgets}';
+  } else if (m.outputs.length === 1) {
     ret = `return ${portIdent(m.outputs[0])}`;
   } else if (m.outputs.length > 1) {
     const pairs = m.outputs
@@ -81,7 +87,9 @@ export function generateProgram(target: Module, all: Module[]): string {
     .join(", ");
 
   let mapOutputs: string;
-  if (target.outputs.length === 0) {
+  if (target.kind === "dashboard") {
+    mapOutputs = "_outputs = _result if isinstance(_result, dict) else {}";
+  } else if (target.outputs.length === 0) {
     mapOutputs = "_outputs = {}";
   } else if (target.outputs.length === 1) {
     mapOutputs = `_outputs = {${JSON.stringify(portIdent(target.outputs[0]))}: _result}`;

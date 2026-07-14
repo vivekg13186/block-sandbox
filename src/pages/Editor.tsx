@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Loader2, LayoutGrid, Play, FileText, Code } from "lucide-react";
+import { Check, Loader2, LayoutGrid, Play, FileText, Code, LayoutDashboard } from "lucide-react";
 import type { Module } from "../types/module";
 import { getModule, listModules, saveModule } from "../storage/modules";
 import { generateProgram } from "../blockly/codegen";
@@ -7,8 +7,9 @@ import OverviewTab from "../components/OverviewTab";
 import DiagramTab from "../components/DiagramTab";
 import ScriptTab from "../components/ScriptTab";
 import RunTab from "../components/RunTab";
+import DashboardTab from "../components/DashboardTab";
 
-type Tab = "overview" | "diagram" | "run";
+type Tab = "overview" | "diagram" | "run" | "dashboard";
 type SaveState = "idle" | "saving" | "saved";
 
 interface Props {
@@ -108,12 +109,15 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
   }
 
   const isScript = module.kind === "script";
+  const isDash = module.kind === "dashboard";
   const tabs: { id: Tab; label: string; icon: typeof FileText }[] = [
     { id: "overview", label: "Overview", icon: FileText },
     isScript
       ? { id: "diagram", label: "Script", icon: Code }
       : { id: "diagram", label: "Diagram", icon: LayoutGrid },
-    { id: "run", label: "Run", icon: Play },
+    isDash
+      ? { id: "dashboard", label: "Dashboard", icon: LayoutDashboard }
+      : { id: "run", label: "Run", icon: Play },
   ];
 
   return (
@@ -159,6 +163,9 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
             />
           ))}
         {tab === "run" && <RunTab module={module} allModules={allModules} />}
+        {tab === "dashboard" && (
+          <DashboardTab module={module} allModules={allModules} active={active !== false} />
+        )}
       </main>
     </div>
   );

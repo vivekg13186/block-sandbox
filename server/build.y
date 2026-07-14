@@ -1,0 +1,3 @@
+exec("npm run build")
+exec ("cp -r ../dist/* static/")
+exec ("python3 run.py")                      

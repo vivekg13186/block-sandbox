@@ -27,6 +27,27 @@ export default defineConfig({
           if (id.includes("blockly")) return "blockly";
           if (id.includes("@codemirror") || id.includes("@uiw") || id.includes("codemirror"))
             return "codemirror";
+          // Recharts + its charting deps go in their own chunk. Keeping them out
+          // of `vendor` avoids a vendor->react->vendor circular chunk (recharts
+          // imports React, react-dom imports scheduler which lives in vendor).
+          if (
+            id.includes("recharts") ||
+            id.includes("react-smooth") ||
+            id.includes("victory-vendor") ||
+            id.includes("d3-") ||
+            id.includes("internmap") ||
+            id.includes("decimal.js-light") ||
+            // recharts v3 state deps (keep react-importing ones out of vendor)
+            id.includes("react-redux") ||
+            id.includes("@reduxjs/toolkit") ||
+            id.includes("use-sync-external-store") ||
+            id.includes("immer") ||
+            id.includes("reselect") ||
+            id.includes("es-toolkit") ||
+            id.includes("eventemitter3") ||
+            id.includes("tiny-invariant")
+          )
+            return "charts";
           if (id.includes("react")) return "react";
           if (id.includes("jszip")) return "jszip";
           if (id.includes("js-yaml")) return "jsyaml";

@@ -11,8 +11,9 @@ export interface ModulePort {
   description?: string;
 }
 
-/** "blocks" = Blockly editor; "script" = raw Python editor. */
-export type ModuleKind = "blocks" | "script";
+/** "blocks" = Blockly editor; "script" = raw Python editor;
+ *  "dashboard" = Blockly editor whose widget blocks emit a dashboard. */
+export type ModuleKind = "blocks" | "script" | "dashboard";
 
 export interface Module {
   id: string;
@@ -78,7 +79,7 @@ export function normalizeModule(m: Partial<Module> & { id: string; name: string 
     id: m.id,
     name: m.name,
     description: m.description ?? "",
-    kind: m.kind === "script" ? "script" : "blocks",
+    kind: m.kind === "script" ? "script" : m.kind === "dashboard" ? "dashboard" : "blocks",
     folder: normalizeFolder(m.folder ?? ""),
     requirements: m.requirements ?? [],
     inputs: m.inputs ?? [],

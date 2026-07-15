@@ -34,6 +34,15 @@ interface Spec {
 
 const A = (name: string, def: string, shadow?: ShadowVal): Arg => ({ name, def, shadow });
 
+// Extract a list of values to aggregate: the raw items for a plain list, or a
+// given field from each object for a list of dicts (empty key → raw items).
+const fieldFn = () =>
+  pythonGenerator.provideFunction_("bs_field", [
+    `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(coll, key):`,
+    "    key = str(key) if key not in (None, '') else ''",
+    "    return [(o.get(key) if isinstance(o, dict) else o) for o in coll] if key else list(coll)",
+  ]);
+
 // ---- specs ---------------------------------------------------------------
 
 const ARRAY_SPECS: Spec[] = [
@@ -182,44 +191,40 @@ const COLL_SPECS: Spec[] = [
     gen: (v) => `(list((${v("C")}).values()) if isinstance(${v("C")}, dict) else list(${v("C")}))`,
   },
   {
-    type: "lo_size",
-    msg: "size of %1",
-    args: [A("C", "[]")],
-    colour: COLL,
-    tip: "Number of items",
-    gen: (v) => `len(${v("C")})`,
-  },
-  {
     type: "lo_sum",
-    msg: "sum of %1",
-    args: [A("C", "[]")],
+    msg: "sum of %1 by key %2",
+    args: [A("C", "[]"), A("K", "''", "")],
     colour: COLL,
-    tip: "Sum of a list of numbers",
-    gen: (v) => `sum(${v("C")})`,
+    tip: "Sum a list of numbers, or a field across a list of objects (leave key empty for plain numbers)",
+    gen: (v) =>
+      `sum(x for x in ${fieldFn()}(${v("C")}, ${v("K")}) if isinstance(x, (int, float)) and not isinstance(x, bool))`,
   },
   {
     type: "lo_min",
-    msg: "min of %1",
-    args: [A("C", "[]")],
+    msg: "min of %1 by key %2",
+    args: [A("C", "[]"), A("K", "''", "")],
     colour: COLL,
-    tip: "Minimum (None if empty)",
-    gen: (v) => `(min(${v("C")}) if ${v("C")} else None)`,
+    tip: "Minimum value (or of a field across objects); None if empty",
+    gen: (v) =>
+      `(lambda _v: (min(_v) if _v else None))([x for x in ${fieldFn()}(${v("C")}, ${v("K")}) if x is not None])`,
   },
   {
     type: "lo_max",
-    msg: "max of %1",
-    args: [A("C", "[]")],
+    msg: "max of %1 by key %2",
+    args: [A("C", "[]"), A("K", "''", "")],
     colour: COLL,
-    tip: "Maximum (None if empty)",
-    gen: (v) => `(max(${v("C")}) if ${v("C")} else None)`,
+    tip: "Maximum value (or of a field across objects); None if empty",
+    gen: (v) =>
+      `(lambda _v: (max(_v) if _v else None))([x for x in ${fieldFn()}(${v("C")}, ${v("K")}) if x is not None])`,
   },
   {
     type: "lo_mean",
-    msg: "mean of %1",
-    args: [A("C", "[]")],
+    msg: "mean of %1 by key %2",
+    args: [A("C", "[]"), A("K", "''", "")],
     colour: COLL,
-    tip: "Average (0 if empty)",
-    gen: (v) => `(sum(${v("C")})/len(${v("C")}) if ${v("C")} else 0)`,
+    tip: "Average of numbers (or of a field across objects); 0 if empty",
+    gen: (v) =>
+      `(lambda _v: (sum(_v)/len(_v) if _v else 0))([x for x in ${fieldFn()}(${v("C")}, ${v("K")}) if isinstance(x, (int, float)) and not isinstance(x, bool)])`,
   },
 ];
 

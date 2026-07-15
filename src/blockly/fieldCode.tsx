@@ -179,9 +179,11 @@ class FieldCode extends Blockly.FieldTextInput {
     return new FieldCode(String(options["text"] ?? ""));
   }
 
-  // Open the CodeMirror modal instead of the default inline editor.
+  // Open the CodeMirror modal instead of the default inline editor. Blocks with
+  // a LANG dropdown (code_text) pick the language; a bare code field (the
+  // python_script block) defaults to Python.
   showEditor_(): void {
-    const lang = this.getSourceBlock()?.getFieldValue("LANG") || "text";
+    const lang = this.getSourceBlock()?.getFieldValue("LANG") || "python";
     openCodeModal(String(this.getValue() ?? ""), lang, (v) => this.setValue(v));
   }
 
@@ -225,6 +227,18 @@ export function registerCodeField(): void {
       colour: 160,
       tooltip: "Edit a JSON / XML / Python / JS / text value in a code editor",
     },
+    {
+      // Generic script block: raw Python statements injected into the flow.
+      type: "python_script",
+      message0: "python %1",
+      args0: [{ type: "field_code", name: "CODE", text: "" }],
+      previousStatement: null,
+      nextStatement: null,
+      colour: 20,
+      tooltip:
+        "Run raw Python statements. Read inputs by name, set outputs, and use " +
+        "variables from surrounding blocks (e.g. result = {...}).",
+    },
   ]);
 
   // The value is emitted as a Python string literal (JSON escaping is valid
@@ -232,5 +246,20 @@ export function registerCodeField(): void {
   pythonGenerator.forBlock["code_text"] = (block) => {
     const text = block.getFieldValue("CODE") || "";
     return [JSON.stringify(text), Order.ATOMIC];
+  };
+
+  // The generic script block injects its code verbatim as statements. Leading
+  // indentation is normalized to column 0 so Blockly can re-indent it for the
+  // block's nesting depth; internal relative indentation is preserved.
+  pythonGenerator.forBlock["python_script"] = (block) => {
+    const raw = String(block.getFieldValue("CODE") || "").replace(/\s+$/, "");
+    if (!raw.trim()) return "";
+    const lines = raw.split("\n");
+    const indents = lines
+      .filter((l) => l.trim())
+      .map((l) => l.match(/^\s*/)![0].length);
+    const strip = indents.length ? Math.min(...indents) : 0;
+    const body = lines.map((l) => l.slice(strip)).join("\n");
+    return body + "\n";
   };
 }

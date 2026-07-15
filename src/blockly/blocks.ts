@@ -1357,6 +1357,12 @@ export function buildToolbox(current: Module, all: Module[]): object {
       },
       {
         kind: "category",
+        name: "Script",
+        colour: "20",
+        contents: [{ kind: "block", type: "python_script" }],
+      },
+      {
+        kind: "category",
         name: "Assert",
         colour: String(OUT_COLOUR),
         contents: [

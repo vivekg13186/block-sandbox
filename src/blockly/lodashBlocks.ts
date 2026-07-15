@@ -70,22 +70,6 @@ const ARRAY_SPECS: Spec[] = [
     gen: (v) => `list(dict.fromkeys(${v("L")}))`,
   },
   {
-    type: "lo_first",
-    msg: "first of %1",
-    args: [A("L", "[]")],
-    colour: ARRAY,
-    tip: "First element (or None)",
-    gen: (v) => `((${v("L")})[0] if (${v("L")}) else None)`,
-  },
-  {
-    type: "lo_last",
-    msg: "last of %1",
-    args: [A("L", "[]")],
-    colour: ARRAY,
-    tip: "Last element (or None)",
-    gen: (v) => `((${v("L")})[-1] if (${v("L")}) else None)`,
-  },
-  {
     type: "lo_reverse",
     msg: "reverse %1",
     args: [A("L", "[]")],
@@ -116,14 +100,6 @@ const ARRAY_SPECS: Spec[] = [
     colour: ARRAY,
     tip: "Index of value (-1 if absent)",
     gen: (v) => `((${v("L")}).index(${v("X")}) if ${v("X")} in (${v("L")}) else -1)`,
-  },
-  {
-    type: "lo_join",
-    msg: "join %1 with %2",
-    args: [A("L", "[]"), A("S", "''", ", ")],
-    colour: ARRAY,
-    tip: "Join list items into a string",
-    gen: (v) => `str(${v("S")}).join(map(str, ${v("L")}))`,
   },
   {
     type: "lo_concat",
@@ -193,23 +169,6 @@ const ARRAY_SPECS: Spec[] = [
     colour: ARRAY,
     tip: "Elements from index A up to (not including) B",
     gen: (v) => `list(${v("L")})[int(${v("A")}) : int(${v("B")})]`,
-  },
-  {
-    type: "lo_pick_each",
-    msg: "pick keys %1 from each of %2",
-    args: [A("KEYS", "[]"), A("L", "[]")],
-    colour: OBJECT,
-    tip: "Keep only the given keys in every object of a list",
-    gen: (v) => `[{k: o[k] for k in (${v("KEYS")}) if k in o} for o in (${v("L")})]`,
-  },
-  {
-    type: "lo_omit_each",
-    msg: "omit keys %1 from each of %2",
-    args: [A("KEYS", "[]"), A("L", "[]")],
-    colour: OBJECT,
-    tip: "Drop the given keys from every object of a list",
-    gen: (v) =>
-      `[{k: val for k, val in o.items() if k not in (${v("KEYS")})} for o in (${v("L")})]`,
   },
 ];
 
@@ -282,14 +241,6 @@ const NUMBER_SPECS: Spec[] = [
     gen: (v) => `((${v("LO")}) <= (${v("N")}) < (${v("HI")}))`,
   },
   {
-    type: "lo_round",
-    msg: "round %1 to %2 places",
-    args: [A("N", "0", 0), A("P", "0", 2)],
-    colour: NUMBER,
-    tip: "Round to P decimal places",
-    gen: (v) => `round(${v("N")}, int(${v("P")}))`,
-  },
-  {
     type: "lo_abs",
     msg: "abs %1",
     args: [A("N", "0", 0)],
@@ -320,14 +271,6 @@ const NUMBER_SPECS: Spec[] = [
     colour: NUMBER,
     tip: "Parse a string to an integer",
     gen: (v) => `int(str(${v("S")}).strip())`,
-  },
-  {
-    type: "lo_random_int",
-    msg: "random int %1 to %2",
-    args: [A("LO", "0", 0), A("HI", "0", 100)],
-    colour: NUMBER,
-    tip: "Random integer in [LO, HI]",
-    gen: (v) => `__import__('random').randint(int(${v("LO")}), int(${v("HI")}))`,
   },
 ];
 
@@ -430,22 +373,6 @@ const OBJECT_SPECS: Spec[] = [
     colour: OBJECT,
     tip: "Merge two objects (B wins)",
     gen: (v) => `{**(${v("A")}), **(${v("B")})}`,
-  },
-  {
-    type: "lo_pick",
-    msg: "pick keys %1 from %2",
-    args: [A("KEYS", "[]"), A("O", "{}")],
-    colour: OBJECT,
-    tip: "Keep only the given keys",
-    gen: (v) => `{k: (${v("O")})[k] for k in (${v("KEYS")}) if k in (${v("O")})}`,
-  },
-  {
-    type: "lo_omit",
-    msg: "omit keys %1 from %2",
-    args: [A("KEYS", "[]"), A("O", "{}")],
-    colour: OBJECT,
-    tip: "Drop the given keys",
-    gen: (v) => `{k: val for k, val in (${v("O")}).items() if k not in (${v("KEYS")})}`,
   },
   {
     type: "lo_invert",

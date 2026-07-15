@@ -96,49 +96,11 @@ function registerStaticBlocks(): void {
       tooltip: "Serialize a value to a JSON string (json.dumps)",
     },
     {
-      type: "json_get",
-      message0: "get key %1 from %2",
-      args0: [
-        { type: "input_value", name: "KEY" },
-        { type: "input_value", name: "OBJ" },
-      ],
-      inputsInline: true,
-      output: null,
-      colour: JSON_COLOUR,
-      tooltip: "Get a key from a dict / parsed JSON object",
-    },
-    {
       type: "object_empty",
       message0: "empty object",
       output: null,
       colour: OBJ_COLOUR,
       tooltip: "An empty object / dict {}",
-    },
-    {
-      type: "object_get",
-      message0: "get key %1 of %2",
-      args0: [
-        { type: "input_value", name: "KEY" },
-        { type: "input_value", name: "OBJ" },
-      ],
-      inputsInline: true,
-      output: null,
-      colour: OBJ_COLOUR,
-      tooltip: "Read a key from an object (returns None if missing)",
-    },
-    {
-      type: "object_set",
-      message0: "set key %1 of %2 to %3",
-      args0: [
-        { type: "input_value", name: "KEY" },
-        { type: "input_value", name: "OBJ" },
-        { type: "input_value", name: "VALUE" },
-      ],
-      inputsInline: true,
-      previousStatement: null,
-      nextStatement: null,
-      colour: OBJ_COLOUR,
-      tooltip: "Set a key on an object",
     },
     {
       type: "object_keys",
@@ -306,22 +268,6 @@ function registerStaticBlocks(): void {
       tooltip: "HTTP Basic auth credentials (username, password) for the auth slot",
     },
     {
-      type: "http_get_json",
-      message0: "GET JSON from %1",
-      args0: [{ type: "input_value", name: "URL" }],
-      output: null,
-      colour: HTTP_COLOUR,
-      tooltip: "GET a URL and return the parsed JSON body",
-    },
-    {
-      type: "http_get_text",
-      message0: "GET page from %1",
-      args0: [{ type: "input_value", name: "URL" }],
-      output: null,
-      colour: HTTP_COLOUR,
-      tooltip: "GET a URL and return the raw response text (HTML)",
-    },
-    {
       type: "http_status",
       message0: "status of %1",
       args0: [{ type: "input_value", name: "RESP" }],
@@ -344,21 +290,6 @@ function registerStaticBlocks(): void {
       output: null,
       colour: HTTP_COLOUR,
       tooltip: "True if the response status was 2xx",
-    },
-    {
-      type: "for_each_row_of",
-      message0: "for each row %1 in %2",
-      args0: [
-        { type: "field_variable", name: "VAR", variable: "row" },
-        { type: "input_value", name: "LIST" },
-      ],
-      message1: "do %1",
-      args1: [{ type: "input_statement", name: "DO" }],
-      inputsInline: true,
-      previousStatement: null,
-      nextStatement: null,
-      colour: "120",
-      tooltip: "Loop over each item (row) of a list, e.g. the rows from a Read Table module",
     },
     {
       type: "read_table",
@@ -399,30 +330,6 @@ function registerStaticBlocks(): void {
       nextStatement: null,
       colour: FILE_COLOUR,
       tooltip: "Loop over each row (as an object) of a CSV or Excel file",
-    },
-    {
-      type: "logic_default_empty",
-      message0: "%1 if not empty else %2",
-      args0: [
-        { type: "input_value", name: "VALUE" },
-        { type: "input_value", name: "DEFAULT" },
-      ],
-      inputsInline: true,
-      output: null,
-      colour: "210",
-      tooltip: "Return the value, or the default when it is empty/None (None, '', [], {}, 0, false)",
-    },
-    {
-      type: "logic_default_none",
-      message0: "%1 if not None else %2",
-      args0: [
-        { type: "input_value", name: "VALUE" },
-        { type: "input_value", name: "DEFAULT" },
-      ],
-      inputsInline: true,
-      output: null,
-      colour: "210",
-      tooltip: "Return the value, or the default only when it is None",
     },
     {
       type: "xml_get",
@@ -698,25 +605,9 @@ function registerStaticBlocks(): void {
     const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
     return [`json.dumps(${value})`, Order.FUNCTION_CALL];
   };
-  pythonGenerator.forBlock["json_get"] = (block) => {
-    const key = pythonGenerator.valueToCode(block, "KEY", Order.NONE) || "''";
-    const obj = pythonGenerator.valueToCode(block, "OBJ", Order.NONE) || "{}";
-    return [`(${obj}).get(${key})`, Order.FUNCTION_CALL];
-  };
 
   // Object / dict blocks.
   pythonGenerator.forBlock["object_empty"] = () => ["{}", Order.ATOMIC];
-  pythonGenerator.forBlock["object_get"] = (block) => {
-    const key = pythonGenerator.valueToCode(block, "KEY", Order.NONE) || "''";
-    const obj = pythonGenerator.valueToCode(block, "OBJ", Order.NONE) || "{}";
-    return [`(${obj}).get(${key})`, Order.FUNCTION_CALL];
-  };
-  pythonGenerator.forBlock["object_set"] = (block) => {
-    const key = pythonGenerator.valueToCode(block, "KEY", Order.NONE) || "''";
-    const obj = pythonGenerator.valueToCode(block, "OBJ", Order.NONE) || "{}";
-    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
-    return `(${obj})[${key}] = ${value}\n`;
-  };
   pythonGenerator.forBlock["object_keys"] = (block) => {
     const obj = pythonGenerator.valueToCode(block, "OBJ", Order.NONE) || "{}";
     return [`list((${obj}).keys())`, Order.FUNCTION_CALL];
@@ -913,16 +804,6 @@ function registerStaticBlocks(): void {
       Order.FUNCTION_CALL,
     ];
   };
-  pythonGenerator.forBlock["http_get_json"] = (block) => {
-    const fn = httpFn();
-    const url = pythonGenerator.valueToCode(block, "URL", Order.NONE) || "''";
-    return [`${fn}("GET", ${url}, None, None, None, False).get("data")`, Order.FUNCTION_CALL];
-  };
-  pythonGenerator.forBlock["http_get_text"] = (block) => {
-    const fn = httpFn();
-    const url = pythonGenerator.valueToCode(block, "URL", Order.NONE) || "''";
-    return [`${fn}("GET", ${url}, None, None, None, False).get("text")`, Order.FUNCTION_CALL];
-  };
   pythonGenerator.forBlock["http_basic_auth"] = (block) => {
     const user = pythonGenerator.valueToCode(block, "USER", Order.NONE) || "''";
     const pass = pythonGenerator.valueToCode(block, "PASS", Order.NONE) || "''";
@@ -942,35 +823,6 @@ function registerStaticBlocks(): void {
   pythonGenerator.forBlock["http_ok"] = (block) => {
     const resp = pythonGenerator.valueToCode(block, "RESP", Order.NONE) || "{}";
     return [`(${resp}).get("ok")`, Order.FUNCTION_CALL];
-  };
-  pythonGenerator.forBlock["for_each_row_of"] = (block) => {
-    const varName = pythonGenerator.getVariableName(block.getFieldValue("VAR"));
-    const list = pythonGenerator.valueToCode(block, "LIST", Order.NONE) || "[]";
-    let branch = pythonGenerator.statementToCode(block, "DO");
-    if (!branch) branch = pythonGenerator.INDENT + "pass\n";
-    return `for ${varName} in ${list}:\n${branch}`;
-  };
-
-  // The default is passed as a lambda so it is only evaluated when actually
-  // needed — otherwise a function/module call in the "else" slot would run on
-  // every use (Python evaluates all call arguments eagerly).
-  pythonGenerator.forBlock["logic_default_empty"] = (block) => {
-    const fn = pythonGenerator.provideFunction_("bs_default_empty", [
-      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(v, d):`,
-      "    return d() if (v is None or v == '' or v == [] or v == {} or v is False or v == 0) else v",
-    ]);
-    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
-    const dflt = pythonGenerator.valueToCode(block, "DEFAULT", Order.NONE) || "None";
-    return [`${fn}(${value}, lambda: ${dflt})`, Order.FUNCTION_CALL];
-  };
-  pythonGenerator.forBlock["logic_default_none"] = (block) => {
-    const fn = pythonGenerator.provideFunction_("bs_default_none", [
-      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(v, d):`,
-      "    return d() if v is None else v",
-    ]);
-    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
-    const dflt = pythonGenerator.valueToCode(block, "DEFAULT", Order.NONE) || "None";
-    return [`${fn}(${value}, lambda: ${dflt})`, Order.FUNCTION_CALL];
   };
 
   // Dashboard widgets: append a render-spec dict to the module's `widgets` list.
@@ -1400,11 +1252,6 @@ export function buildToolbox(current: Module, all: Module[]): object {
             inputs: { TEXT: { shadow: { type: "text", fields: { TEXT: "{}" } } } },
           },
           { kind: "block", type: "json_stringify" },
-          {
-            kind: "block",
-            type: "json_get",
-            inputs: { KEY: { shadow: { type: "text", fields: { TEXT: "key" } } } },
-          },
         ],
       },
       {
@@ -1414,16 +1261,6 @@ export function buildToolbox(current: Module, all: Module[]): object {
         contents: [
           { kind: "block", type: "object_transform" },
           { kind: "block", type: "object_empty" },
-          {
-            kind: "block",
-            type: "object_get",
-            inputs: { KEY: { shadow: { type: "text", fields: { TEXT: "key" } } } },
-          },
-          {
-            kind: "block",
-            type: "object_set",
-            inputs: { KEY: { shadow: { type: "text", fields: { TEXT: "key" } } } },
-          },
           { kind: "block", type: "object_keys" },
           { kind: "block", type: "object_values" },
           { kind: "block", type: "object_get_path" },
@@ -1507,20 +1344,6 @@ export function buildToolbox(current: Module, all: Module[]): object {
           },
           {
             kind: "block",
-            type: "http_get_json",
-            inputs: {
-              URL: { shadow: { type: "text", fields: { TEXT: "https://api.example.com" } } },
-            },
-          },
-          {
-            kind: "block",
-            type: "http_get_text",
-            inputs: {
-              URL: { shadow: { type: "text", fields: { TEXT: "https://example.com" } } },
-            },
-          },
-          {
-            kind: "block",
             type: "http_basic_auth",
             inputs: {
               USER: { shadow: { type: "text", fields: { TEXT: "user" } } },
@@ -1590,16 +1413,6 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "logic_boolean" },
           { kind: "block", type: "logic_null" },
           { kind: "block", type: "logic_ternary" },
-          {
-            kind: "block",
-            type: "logic_default_empty",
-            inputs: { DEFAULT: { shadow: { type: "text", fields: { TEXT: "default" } } } },
-          },
-          {
-            kind: "block",
-            type: "logic_default_none",
-            inputs: { DEFAULT: { shadow: { type: "text", fields: { TEXT: "default" } } } },
-          },
         ],
       },
       {
@@ -1615,7 +1428,6 @@ export function buildToolbox(current: Module, all: Module[]): object {
           { kind: "block", type: "controls_whileUntil" },
           { kind: "block", type: "controls_for" },
           { kind: "block", type: "controls_forEach" },
-          { kind: "block", type: "for_each_row_of" },
           { kind: "block", type: "controls_flow_statements" },
         ],
       },

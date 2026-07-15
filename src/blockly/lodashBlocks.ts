@@ -43,6 +43,31 @@ const fieldFn = () =>
     "    return [(o.get(key) if isinstance(o, dict) else o) for o in coll] if key else list(coll)",
   ]);
 
+// Search a list: match each item's field (or the item itself when key is empty)
+// against a value with an operator. Returns matches, or the first match.
+const whereFn = () =>
+  pythonGenerator.provideFunction_("bs_where", [
+    `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(coll, key, op, val, first=False):`,
+    "    key = str(key) if key not in (None, '') else ''",
+    "    def gv(o):",
+    "        return o.get(key) if (isinstance(o, dict) and key) else o",
+    "    def ok(x):",
+    "        try:",
+    "            if op == 'is': return x == val",
+    "            if op == 'not': return x != val",
+    "            if op == 'contains':",
+    "                return (val in x) if isinstance(x, (list, dict)) else (str(val) in str(x))",
+    "            if op == 'gt': return x > val",
+    "            if op == 'lt': return x < val",
+    "            if op == 'ge': return x >= val",
+    "            if op == 'le': return x <= val",
+    "        except Exception:",
+    "            return False",
+    "        return False",
+    "    res = [o for o in coll if ok(gv(o))]",
+    "    return (res[0] if res else None) if first else res",
+  ]);
+
 // ---- specs ---------------------------------------------------------------
 
 const ARRAY_SPECS: Spec[] = [
@@ -181,6 +206,19 @@ const ARRAY_SPECS: Spec[] = [
   },
 ];
 
+const OP_FIELD: Field = {
+  name: "OP",
+  options: [
+    ["is", "is"],
+    ["is not", "not"],
+    ["contains", "contains"],
+    [">", "gt"],
+    ["<", "lt"],
+    ["≥", "ge"],
+    ["≤", "le"],
+  ],
+};
+
 const COLL_SPECS: Spec[] = [
   {
     type: "lo_to_list",
@@ -189,6 +227,26 @@ const COLL_SPECS: Spec[] = [
     colour: COLL,
     tip: "Values as a list (dict → its values)",
     gen: (v) => `(list((${v("C")}).values()) if isinstance(${v("C")}, dict) else list(${v("C")}))`,
+  },
+  {
+    type: "lo_filter",
+    msg: "filter %1 where key %2 %4 %3",
+    args: [A("C", "[]"), A("K", "''", ""), A("V", "''", "")],
+    fields: [OP_FIELD],
+    colour: COLL,
+    tip: "Keep items matching a condition. For a list of objects use the field key; leave key empty to test each item directly.",
+    gen: (v, f) =>
+      `${whereFn()}(${v("C")}, ${v("K")}, ${JSON.stringify(f("OP"))}, ${v("V")})`,
+  },
+  {
+    type: "lo_find",
+    msg: "find in %1 where key %2 %4 %3",
+    args: [A("C", "[]"), A("K", "''", ""), A("V", "''", "")],
+    fields: [OP_FIELD],
+    colour: COLL,
+    tip: "First item matching a condition (or None). Use the field key for a list of objects.",
+    gen: (v, f) =>
+      `${whereFn()}(${v("C")}, ${v("K")}, ${JSON.stringify(f("OP"))}, ${v("V")}, True)`,
   },
   {
     type: "lo_sum",

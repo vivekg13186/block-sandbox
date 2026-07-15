@@ -151,27 +151,6 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
     <div className="editor">
       <header className="editor-head">
         <h2 className="editor-title">{module.name || "Untitled module"}</h2>
-        <button
-          className="btn primary editor-save"
-          onClick={save}
-          disabled={saveState === "saving" || !dirty}
-          title="Save (⌘S)"
-        >
-          {saveState === "saving" ? (
-            <Loader2 size={14} className="spin" />
-          ) : (
-            <Save size={14} />
-          )}
-          Save
-        </button>
-        <div className="save-indicator">
-          {saveState === "saved" && (
-            <>
-              <Check size={14} /> Saved
-            </>
-          )}
-          {saveState !== "saved" && dirty && <span className="dirty-dot" title="Unsaved changes">● Unsaved</span>}
-        </div>
         <nav className="tabs">
           {tabs.map((t) => (
             <button
@@ -183,6 +162,27 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
             </button>
           ))}
         </nav>
+        <div className="save-indicator">
+          {saveState === "saved" && (
+            <>
+              <Check size={14} /> Saved
+            </>
+          )}
+          {saveState !== "saved" && dirty && (
+            <span className="dirty-dot" title="Unsaved changes">
+              ● Unsaved
+            </span>
+          )}
+        </div>
+        <button
+          className="btn primary editor-save"
+          onClick={save}
+          disabled={saveState === "saving" || !dirty}
+          title="Save (⌘S)"
+        >
+          {saveState === "saving" ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
+          Save
+        </button>
       </header>
 
       <main className="editor-body">

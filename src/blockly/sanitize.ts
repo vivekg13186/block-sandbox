@@ -10,6 +10,12 @@ type Json = any;
 const isKnown = (type?: string): boolean =>
   !!type && !!(Blockly.Blocks as Record<string, unknown>)[type];
 
+/** Recursively drop blocks/shadows whose type isn't registered. Returns null if
+ *  the block itself is unknown. Exported for reuse (e.g. cross-diagram paste). */
+export function pruneBlockState(node: Json): Json | null {
+  return pruneBlock(node);
+}
+
 /** Recursively drop blocks/shadows whose type isn't registered. */
 function pruneBlock(node: Json): Json | null {
   if (!node || !isKnown(node.type)) return null;

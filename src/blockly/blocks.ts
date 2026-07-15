@@ -14,6 +14,7 @@ import type { Module } from "../types/module";
 import { portIdent, normalizeFolder } from "../types/module";
 import { registerCodeField } from "./fieldCode";
 import { registerTransformBlock } from "./transformBlock";
+import { registerClipboardMenus } from "./clipboard";
 import {
   registerLodashBlocks,
   lodashCategories,
@@ -42,6 +43,7 @@ function registerStaticBlocks(): void {
 
   registerCodeField();
   registerTransformBlock();
+  registerClipboardMenus();
 
   Blockly.common.defineBlocksWithJsonArray([
     {

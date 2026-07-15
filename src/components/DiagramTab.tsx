@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import * as Blockly from "blockly";
-import { Undo2, Redo2, ZoomIn, ZoomOut, Maximize, WandSparkles, Search } from "lucide-react";
+import { Undo2, Redo2, ZoomIn, ZoomOut, Maximize, WandSparkles, Search, Image } from "lucide-react";
 import BlocklyWorkspace from "./BlocklyWorkspace";
+import { saveWorkspacePng } from "../blockly/exportImage";
 import type { Module } from "../types/module";
 
 interface Props {
@@ -70,6 +71,21 @@ export default function DiagramTab({
         <span className="tb-sep" />
         <button className="icon-btn" title="Clean up blocks" disabled={!ready} onClick={() => act((w) => w.cleanUp())}>
           <WandSparkles size={16} />
+        </button>
+        <span className="tb-sep" />
+        <button
+          className="icon-btn"
+          title="Save blocks as image (PNG)"
+          disabled={!ready}
+          onClick={() =>
+            act((w) => {
+              saveWorkspacePng(w, module.name).then((ok) => {
+                if (!ok) Blockly.dialog.alert("Add some blocks first, then save the image.");
+              });
+            })
+          }
+        >
+          <Image size={16} />
         </button>
         <span className="tb-hint muted">
           <Search size={13} /> ⌘F to search

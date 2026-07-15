@@ -150,6 +150,49 @@ const ARRAY_SPECS: Spec[] = [
     tip: "List of integers 0..N-1",
     gen: (v) => `list(range(int(${v("N")})))`,
   },
+  // ---- list-of-objects helpers ----
+  {
+    type: "lo_sort_by",
+    msg: "sort %1 by key %2",
+    args: [A("L", "[]"), A("K", "''", "name")],
+    colour: ARRAY,
+    tip: "Sort a list of objects by an object key (ascending; missing values last)",
+    gen: (v) =>
+      `sorted((${v("L")}), key=lambda o: (o.get(${v("K")}) is None, o.get(${v("K")})))`,
+  },
+  {
+    type: "lo_take",
+    msg: "take first %1 of %2",
+    args: [A("N", "1", 5), A("L", "[]")],
+    colour: ARRAY,
+    tip: "First N elements of a list",
+    gen: (v) => `list(${v("L")})[: int(${v("N")})]`,
+  },
+  {
+    type: "lo_slice",
+    msg: "slice %1 from %2 to %3",
+    args: [A("L", "[]"), A("A", "0", 0), A("B", "0", 5)],
+    colour: ARRAY,
+    tip: "Elements from index A up to (not including) B",
+    gen: (v) => `list(${v("L")})[int(${v("A")}) : int(${v("B")})]`,
+  },
+  {
+    type: "lo_pick_each",
+    msg: "pick keys %1 from each of %2",
+    args: [A("KEYS", "[]"), A("L", "[]")],
+    colour: OBJECT,
+    tip: "Keep only the given keys in every object of a list",
+    gen: (v) => `[{k: o[k] for k in (${v("KEYS")}) if k in o} for o in (${v("L")})]`,
+  },
+  {
+    type: "lo_omit_each",
+    msg: "omit keys %1 from each of %2",
+    args: [A("KEYS", "[]"), A("L", "[]")],
+    colour: OBJECT,
+    tip: "Drop the given keys from every object of a list",
+    gen: (v) =>
+      `[{k: val for k, val in o.items() if k not in (${v("KEYS")})} for o in (${v("L")})]`,
+  },
 ];
 
 const COLL_SPECS: Spec[] = [

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import type { Module } from "../types/module";
 import { generateProgram, collectRequirements } from "../blockly/codegen";
@@ -93,14 +93,8 @@ export default function DashboardTab({ module, allModules, active = true }: Prop
     }
   }, [program, requirements, envStore]);
 
-  // Run once when the tab first becomes active.
-  const didInit = useRef(false);
-  useEffect(() => {
-    if (active && !didInit.current && canRun()) {
-      didInit.current = true;
-      run();
-    }
-  }, [active, run]);
+  // Note: the dashboard does not run automatically on tab switch — the user
+  // triggers it with Refresh (or the auto-refresh interval below).
 
   // Auto-refresh on the chosen interval, only while active.
   useEffect(() => {

@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import type * as Blockly from "blockly";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import * as Blockly from "blockly";
 import { Undo2, Redo2, ZoomIn, ZoomOut, Maximize, WandSparkles, Search } from "lucide-react";
 import BlocklyWorkspace from "./BlocklyWorkspace";
 import type { Module } from "../types/module";
@@ -9,12 +9,38 @@ interface Props {
   allModules: Module[];
   /** Only mount the (heavy) Blockly workspace while this editor tab is active. */
   active?: boolean;
+  /** Editor sets this so Save can pull the live workspace state on demand. */
+  flushRef?: MutableRefObject<(() => object | null) | null>;
   onWorkspaceChange: (workspace: object) => void;
 }
 
-export default function DiagramTab({ module, allModules, active = true, onWorkspaceChange }: Props) {
+export default function DiagramTab({
+  module,
+  allModules,
+  active = true,
+  flushRef,
+  onWorkspaceChange,
+}: Props) {
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const [ready, setReady] = useState(false);
+
+  // Expose a serializer so Editor's Save can capture the current graph even if
+  // Blockly's debounced onChange hasn't fired yet.
+  useEffect(() => {
+    if (!flushRef) return;
+    flushRef.current = () => {
+      const w = wsRef.current;
+      if (!w) return null;
+      try {
+        return Blockly.serialization.workspaces.save(w);
+      } catch {
+        return null;
+      }
+    };
+    return () => {
+      flushRef.current = null;
+    };
+  }, [flushRef]);
 
   const ws = () => wsRef.current;
   const act = (fn: (w: Blockly.WorkspaceSvg) => void) => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Loader2, LayoutGrid, Play, FileText, Code, LayoutDashboard } from "lucide-react";
+import { Check, Loader2, LayoutGrid, Play, FileText, Code, LayoutDashboard, Save } from "lucide-react";
 import type { Module } from "../types/module";
 import { getModule, listModules, saveModule } from "../storage/modules";
 import { generateProgram } from "../blockly/codegen";
@@ -25,10 +25,15 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
   const [allModules, setAllModules] = useState<Module[]>([]);
   const [tab, setTab] = useState<Tab>("overview");
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [dirty, setDirty] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const saveTimer = useRef<number | undefined>(undefined);
   const allModulesRef = useRef<Module[]>([]);
   allModulesRef.current = allModules;
+  const moduleRef = useRef<Module | null>(null);
+  moduleRef.current = module;
+  // Set by DiagramTab: pulls the live Blockly workspace state on demand so a
+  // manual Save captures edits that Blockly hasn't yet pushed up (it debounces).
+  const flushDiagram = useRef<(() => object | null) | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -59,36 +64,58 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
     }
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced persistence whenever the module changes.
-  const persist = useCallback((m: Module) => {
-    setSaveState("saving");
-    window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(async () => {
-      // Cache the generated program so the server can run this module headlessly
-      // (e.g. for scheduled jobs) without needing Blockly.
-      let toSave = m;
-      try {
-        toSave = { ...m, program: generateProgram(m, allModulesRef.current) };
-      } catch {
-        /* keep previous program if generation fails */
-      }
-      await saveModule(toSave);
-      setSaveState("saved");
-      window.setTimeout(() => setSaveState("idle"), 1200);
-    }, 500);
+  // Edits update local state and mark the module dirty; nothing is written to
+  // disk until the user hits Save (manual-save only).
+  const applyPatch = useCallback((patch: Partial<Module>) => {
+    setModule((prev) => (prev ? { ...prev, ...patch } : prev));
+    setDirty(true);
   }, []);
 
-  const applyPatch = useCallback(
-    (patch: Partial<Module>) => {
-      setModule((prev) => {
-        if (!prev) return prev;
-        const next = { ...prev, ...patch };
-        persist(next);
-        return next;
-      });
-    },
-    [persist]
-  );
+  const save = useCallback(async () => {
+    let m = moduleRef.current;
+    if (!m) return;
+    // Pull the freshest Blockly state (may be newer than React state).
+    const ws = flushDiagram.current?.();
+    if (ws) m = { ...m, workspace: ws };
+    setSaveState("saving");
+    // Cache the generated program so the server can run this module headlessly
+    // (e.g. for scheduled jobs) without needing Blockly.
+    let toSave = m;
+    try {
+      toSave = { ...m, program: generateProgram(m, allModulesRef.current) };
+    } catch {
+      /* keep previous program if generation fails */
+    }
+    await saveModule(toSave);
+    setModule(m);
+    setDirty(false);
+    setSaveState("saved");
+    window.setTimeout(() => setSaveState("idle"), 1200);
+  }, []);
+
+  // Warn before a browser refresh/close if there are unsaved edits.
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
+  // Cmd/Ctrl+S saves while this editor tab is active.
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        save();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, save]);
 
   if (notFound) {
     return (
@@ -124,17 +151,26 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
     <div className="editor">
       <header className="editor-head">
         <h2 className="editor-title">{module.name || "Untitled module"}</h2>
-        <div className="save-indicator">
-          {saveState === "saving" && (
-            <>
-              <Loader2 size={14} className="spin" /> Saving…
-            </>
+        <button
+          className="btn primary editor-save"
+          onClick={save}
+          disabled={saveState === "saving" || !dirty}
+          title="Save (⌘S)"
+        >
+          {saveState === "saving" ? (
+            <Loader2 size={14} className="spin" />
+          ) : (
+            <Save size={14} />
           )}
+          Save
+        </button>
+        <div className="save-indicator">
           {saveState === "saved" && (
             <>
               <Check size={14} /> Saved
             </>
           )}
+          {saveState !== "saved" && dirty && <span className="dirty-dot" title="Unsaved changes">● Unsaved</span>}
         </div>
         <nav className="tabs">
           {tabs.map((t) => (
@@ -159,6 +195,7 @@ export default function Editor({ moduleId, active, onClose, onTitleChange }: Pro
               module={module}
               allModules={allModules}
               active={active !== false}
+              flushRef={flushDiagram}
               onWorkspaceChange={(workspace) => applyPatch({ workspace })}
             />
           ))}

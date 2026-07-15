@@ -395,6 +395,10 @@ select:focus {
   margin: 0;
   font-weight: 600;
 }
+.editor-save {
+  padding: 4px 10px;
+  font-size: 12px;
+}
 .save-indicator {
   display: flex;
   align-items: center;
@@ -402,6 +406,10 @@ select:focus {
   font-size: 12px;
   color: var(--muted);
   min-width: 70px;
+}
+.dirty-dot {
+  color: #e0a44a;
+  font-size: 11px;
 }
 .tabs {
   margin-left: auto;
@@ -1312,6 +1320,22 @@ input.invalid {
   font-weight: 600;
   position: sticky;
   top: 0;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.w-table th:hover {
+  color: var(--text);
+}
+.w-table th.drag-over {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.w-table th .th-sort {
+  display: inline-block;
+  width: 12px;
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--accent);
 }
 .recharts-cartesian-axis-tick text,
 .recharts-text {

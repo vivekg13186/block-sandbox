@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   BarChart,
   Bar,
@@ -181,6 +181,107 @@ function Chart({ kind, data }: { kind: string; data: { name: string; value: numb
   );
 }
 
+/** Compare two cell values: numeric when both look like numbers, else text. */
+function compareCells(a: unknown, b: unknown): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+  const na = typeof a === "number" ? a : Number(a);
+  const nb = typeof b === "number" ? b : Number(b);
+  if (!Number.isNaN(na) && !Number.isNaN(nb) && a !== "" && b !== "") return na - nb;
+  return String(a).localeCompare(String(b));
+}
+
+/** A table with click-to-sort columns and drag-to-reorder headers. */
+function TableWidget({ rows }: { rows: Record<string, unknown>[] }) {
+  const cols = useMemo(() => columns(rows), [rows]);
+  const [order, setOrder] = useState<string[]>(cols);
+  const [sort, setSort] = useState<{ col: string; dir: 1 | -1 } | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const dragCol = useRef<string | null>(null);
+  const didDrag = useRef(false);
+
+  // Reconcile saved order with the current columns (data may change on refresh):
+  // keep known columns in their chosen order, append any new ones.
+  const displayCols = useMemo(() => {
+    const known = order.filter((c) => cols.includes(c));
+    const extra = cols.filter((c) => !known.includes(c));
+    return [...known, ...extra];
+  }, [order, cols]);
+
+  const sorted = useMemo(() => {
+    if (!sort) return rows;
+    const { col, dir } = sort;
+    return [...rows].sort((a, b) => dir * compareCells(a[col], b[col]));
+  }, [rows, sort]);
+
+  const clickSort = (c: string) => {
+    if (didDrag.current) {
+      didDrag.current = false;
+      return;
+    }
+    setSort((prev) =>
+      !prev || prev.col !== c ? { col: c, dir: 1 } : prev.dir === 1 ? { col: c, dir: -1 } : null
+    );
+  };
+
+  const onDrop = (target: string) => {
+    const from = dragCol.current;
+    setDragOver(null);
+    dragCol.current = null;
+    if (!from || from === target) return;
+    didDrag.current = true;
+    const next = [...displayCols];
+    next.splice(next.indexOf(from), 1);
+    next.splice(next.indexOf(target), 0, from);
+    setOrder(next);
+  };
+
+  return (
+    <div className="w-table-wrap">
+      <table className="w-table">
+        <thead>
+          <tr>
+            {displayCols.map((c) => (
+              <th
+                key={c}
+                draggable
+                className={dragOver === c ? "drag-over" : ""}
+                onClick={() => clickSort(c)}
+                onDragStart={() => {
+                  dragCol.current = c;
+                  didDrag.current = false;
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (dragOver !== c) setDragOver(c);
+                }}
+                onDragLeave={() => setDragOver((d) => (d === c ? null : d))}
+                onDrop={() => onDrop(c)}
+                title="Click to sort · drag to reorder"
+              >
+                <span className="th-label">{c}</span>
+                <span className="th-sort">
+                  {sort?.col === c ? (sort.dir === 1 ? "▲" : "▼") : ""}
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((r, i) => (
+            <tr key={i}>
+              {displayCols.map((c) => (
+                <td key={c}>{cell(r[c])}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Widget({ spec }: { spec: WidgetSpec }) {
   const title = spec.title || "";
 
@@ -224,31 +325,7 @@ export default function Widget({ spec }: { spec: WidgetSpec }) {
     case "table":
     default: {
       const rows = asRows(spec.rows);
-      const cols = columns(rows);
-      body = rows.length ? (
-        <div className="w-table-wrap">
-          <table className="w-table">
-            <thead>
-              <tr>
-                {cols.map((c) => (
-                  <th key={c}>{c}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  {cols.map((c) => (
-                    <td key={c}>{cell(r[c])}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="muted">No rows.</p>
-      );
+      body = rows.length ? <TableWidget rows={rows} /> : <p className="muted">No rows.</p>;
     }
   }
 

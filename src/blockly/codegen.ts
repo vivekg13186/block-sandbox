@@ -10,6 +10,7 @@
 import * as Blockly from "blockly";
 import { pythonGenerator } from "blockly/python";
 import { registerDynamicBlocks, moduleFuncName } from "./blocks";
+import { sanitizeState } from "./sanitize";
 import { portIdent } from "../types/module";
 import type { Module } from "../types/module";
 
@@ -29,7 +30,8 @@ function moduleBody(m: Module, all: Module[]): string {
   registerDynamicBlocks(m, all);
   const ws = new Blockly.Workspace();
   try {
-    if (m.workspace) Blockly.serialization.workspaces.load(m.workspace, ws);
+    // Prune unknown/removed block types so a stale saved graph still generates.
+    if (m.workspace) Blockly.serialization.workspaces.load(sanitizeState(m.workspace), ws);
     return (pythonGenerator.workspaceToCode(ws) || "").replace(/\s+$/, "");
   } finally {
     ws.dispose();

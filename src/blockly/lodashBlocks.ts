@@ -16,13 +16,20 @@ interface Arg {
   shadow?: ShadowVal;
   def: string; // fallback code when the input is empty
 }
+interface Field {
+  name: string;
+  options: [string, string][]; // [label, value]
+}
 interface Spec {
   type: string;
   msg: string;
   args: Arg[];
+  /** Dropdown fields, appended after the value inputs in message order. */
+  fields?: Field[];
   colour: string;
   tip: string;
-  gen: (v: (name: string) => string) => string; // returns a Python expression
+  // Returns a Python expression. `v` reads value inputs, `f` reads dropdowns.
+  gen: (v: (name: string) => string, f: (name: string) => string) => string;
 }
 
 const A = (name: string, def: string, shadow?: ShadowVal): Arg => ({ name, def, shadow });
@@ -153,12 +160,23 @@ const ARRAY_SPECS: Spec[] = [
   // ---- list-of-objects helpers ----
   {
     type: "lo_sort_by",
-    msg: "sort %1 by key %2",
+    msg: "sort %1 by key %2 %3",
     args: [A("L", "[]"), A("K", "''", "name")],
+    fields: [
+      {
+        name: "DIR",
+        options: [
+          ["ascending", "asc"],
+          ["descending", "desc"],
+        ],
+      },
+    ],
     colour: ARRAY,
-    tip: "Sort a list of objects by an object key (ascending; missing values last)",
-    gen: (v) =>
-      `sorted((${v("L")}), key=lambda o: (o.get(${v("K")}) is None, o.get(${v("K")})))`,
+    tip: "Sort a list of objects by an object key (missing values last)",
+    gen: (v, f) =>
+      `sorted((${v("L")}), key=lambda o: (o.get(${v("K")}) is None, o.get(${v("K")})), reverse=${
+        f("DIR") === "desc" ? "True" : "False"
+      })`,
   },
   {
     type: "lo_take",
@@ -469,7 +487,14 @@ export function registerLodashBlocks(): void {
       defs.push({
         type: s.type,
         message0: s.msg,
-        args0: s.args.map((a) => ({ type: "input_value", name: a.name })),
+        args0: [
+          ...s.args.map((a) => ({ type: "input_value", name: a.name })),
+          ...(s.fields ?? []).map((fl) => ({
+            type: "field_dropdown",
+            name: fl.name,
+            options: fl.options,
+          })),
+        ],
         output: null,
         inputsInline: true,
         colour: s.colour,
@@ -480,7 +505,8 @@ export function registerLodashBlocks(): void {
           const arg = s.args.find((a) => a.name === name)!;
           return pythonGenerator.valueToCode(block, name, Order.NONE) || arg.def;
         };
-        return [s.gen(v), Order.ATOMIC];
+        const f = (name: string) => block.getFieldValue(name) as string;
+        return [s.gen(v, f), Order.ATOMIC];
       };
     }
   }

@@ -13,6 +13,7 @@ import { pythonGenerator, Order } from "blockly/python";
 import type { Module } from "../types/module";
 import { portIdent, normalizeFolder } from "../types/module";
 import { registerCodeField } from "./fieldCode";
+import { registerTransformBlock } from "./transformBlock";
 import {
   registerLodashBlocks,
   lodashCategories,
@@ -40,6 +41,7 @@ function registerStaticBlocks(): void {
   staticRegistered = true;
 
   registerCodeField();
+  registerTransformBlock();
 
   Blockly.common.defineBlocksWithJsonArray([
     {
@@ -1410,6 +1412,7 @@ export function buildToolbox(current: Module, all: Module[]): object {
         name: "Objects",
         colour: String(OBJ_COLOUR),
         contents: [
+          { kind: "block", type: "object_transform" },
           { kind: "block", type: "object_empty" },
           {
             kind: "block",

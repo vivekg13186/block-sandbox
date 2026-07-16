@@ -5,10 +5,15 @@ import * as Blockly from "blockly";
 const PAD = 16;
 const BG = "#0f1218"; // app --bg, so dark-themed blocks read well
 
-/** Gather same-origin stylesheet rules so exported SVG text/colours render. */
+/** Gather stylesheet rules (including Blockly's adopted stylesheet, which holds
+ *  the .blocklyText fill) so exported SVG text/colours render. */
 function collectCss(): string {
   let css = "";
-  for (const sheet of Array.from(document.styleSheets)) {
+  const sheets: CSSStyleSheet[] = [
+    ...Array.from(document.styleSheets),
+    ...((document as unknown as { adoptedStyleSheets?: CSSStyleSheet[] }).adoptedStyleSheets ?? []),
+  ];
+  for (const sheet of sheets) {
     try {
       for (const rule of Array.from(sheet.cssRules)) css += rule.cssText + "\n";
     } catch {
@@ -16,6 +21,18 @@ function collectCss(): string {
     }
   }
   return css;
+}
+
+/** Force a readable fill on every text node, so field labels/values are visible
+ *  even if the .blocklyText CSS rule didn't make it into the export. */
+function forceTextFill(root: SVGElement): void {
+  root.querySelectorAll("text, tspan").forEach((t) => {
+    const el = t as SVGElement;
+    const cur = el.getAttribute("fill");
+    if (!cur || cur === "#000" || cur === "#000000" || cur === "black") {
+      el.setAttribute("fill", "#e6e9ef");
+    }
+  });
 }
 
 interface Box {
@@ -39,6 +56,7 @@ function bounds(ws: Blockly.WorkspaceSvg): Box | null {
 function toSvgString(ws: Blockly.WorkspaceSvg, box: Box): string {
   const canvas = ws.getCanvas().cloneNode(true) as SVGElement;
   canvas.removeAttribute("transform");
+  forceTextFill(canvas);
   const serialized = new XMLSerializer().serializeToString(canvas);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Download } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -192,8 +193,29 @@ function compareCells(a: unknown, b: unknown): number {
   return String(a).localeCompare(String(b));
 }
 
+/** Escape a value for a CSV cell. */
+function csvCell(v: unknown): string {
+  const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCsv(cols: string[], rows: Record<string, unknown>[], name: string): void {
+  const lines = [cols.map(csvCell).join(",")];
+  for (const r of rows) lines.push(cols.map((c) => csvCell(r[c])).join(","));
+  // Prepend a BOM so Excel reads UTF-8 correctly.
+  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(name || "table").replace(/[^\w.-]+/g, "_")}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** A table with click-to-sort columns and drag-to-reorder headers. */
-function TableWidget({ rows }: { rows: Record<string, unknown>[] }) {
+function TableWidget({ rows, title }: { rows: Record<string, unknown>[]; title?: string }) {
   const cols = useMemo(() => columns(rows), [rows]);
   const [order, setOrder] = useState<string[]>(cols);
   const [sort, setSort] = useState<{ col: string; dir: 1 | -1 } | null>(null);
@@ -238,7 +260,17 @@ function TableWidget({ rows }: { rows: Record<string, unknown>[] }) {
   };
 
   return (
-    <div className="w-table-wrap">
+    <div className="w-table-outer">
+      <div className="w-table-toolbar">
+        <button
+          className="w-csv-btn"
+          title="Export table to CSV"
+          onClick={() => downloadCsv(displayCols, sorted, title || "table")}
+        >
+          <Download size={13} /> CSV
+        </button>
+      </div>
+      <div className="w-table-wrap">
       <table className="w-table">
         <thead>
           <tr>
@@ -278,6 +310,7 @@ function TableWidget({ rows }: { rows: Record<string, unknown>[] }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -325,7 +358,11 @@ export default function Widget({ spec }: { spec: WidgetSpec }) {
     case "table":
     default: {
       const rows = asRows(spec.rows);
-      body = rows.length ? <TableWidget rows={rows} /> : <p className="muted">No rows.</p>;
+      body = rows.length ? (
+        <TableWidget rows={rows} title={spec.title} />
+      ) : (
+        <p className="muted">No rows.</p>
+      );
     }
   }
 

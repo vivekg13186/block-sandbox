@@ -1295,6 +1295,27 @@ input.invalid {
   overflow: auto;
   max-height: 360px;
 }
+.w-table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+.w-csv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.w-csv-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
 .w-table-wrap {
   overflow: auto;
   max-height: 360px;

@@ -15,7 +15,7 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
   );
 }
 
-/** Text-input prompt — a replacement for window.prompt (unsupported in Tauri). */
+/** Text-input prompt — an in-app replacement for window.prompt. */
 export function TextPrompt({
   title,
   initial,

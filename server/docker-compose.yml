@@ -1,0 +1,34 @@
+# Run Block Sandbox against an existing flows directory (a git repo), so the
+# in-app Git panel can commit / push / pull it.
+#
+#   FLOWS_DIR=/path/to/your/flows-repo docker compose -f server/docker-compose.yml up --build
+#
+# Then open http://127.0.0.1:8000
+#
+# FLOWS_DIR must point at a directory the app can use as its data dir — it holds
+# modules/ (plus environment/schedule YAML). Point it at your git repo's root so
+# the Git panel version-controls the whole thing.
+#
+# SECURITY: /api/run executes arbitrary Python with the container's privileges.
+# Keep the published port on a trusted network only.
+
+services:
+  block-sandbox:
+    build: .
+    image: block-sandbox
+    ports:
+      - "8000:8000"
+    environment:
+      # Use the mounted directory as the app's data dir.
+      BLOCK_SANDBOX_DATA: /data
+    volumes:
+      # Your flows project / git repo -> the app's data dir. Set FLOWS_DIR to its
+      # absolute path (defaults to ./flows next to this compose file).
+      - ${FLOWS_DIR:-./flows}:/data
+      # Keep the runtime Python venv in its own named volume so it never lands
+      # inside your git repo (it's created under data/venv at runtime).
+      - block-sandbox-venv:/data/venv
+    restart: unless-stopped
+
+volumes:
+  block-sandbox-venv:

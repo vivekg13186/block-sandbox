@@ -1,0 +1,8 @@
+# Host-specific / regenerated at runtime — never copy into the image.
+venv/
+data/venv/
+**/__pycache__/
+**/*.py[cod]
+.DS_Store
+build.y
+*.log

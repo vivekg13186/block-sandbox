@@ -30,6 +30,6 @@ server/data/
 *.njsproj
 *.sln
 *.sw?
-server/__pycache__/*.pyc
-server/__pycache__/app.cpython-314.pyc
-server/__pycache__/app.cpython-310.pyc
+
+# Docker
+server/flows/

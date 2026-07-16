@@ -1,6 +1,6 @@
 // Blockly calls window.prompt/alert/confirm for things like "Create variable".
-// Those are no-ops in the Tauri webview, so we replace them with small in-app
-// modal dialogs styled with the app's modal CSS classes.
+// We replace them with small in-app modal dialogs styled with the app's modal
+// CSS classes, for a consistent look and reliable behavior.
 
 import * as Blockly from "blockly";
 

@@ -1,7 +1,7 @@
 """Block Sandbox web server.
 
-Serves the built React UI and a small JSON API backing the same features the
-desktop (Tauri) build provided:
+Serves the built React UI and a small JSON API backing all of the app's
+features:
 
   * module storage as a folder tree of human-friendly YAML files (one per
     module) — copy a directory of .yml files in and they just work

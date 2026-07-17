@@ -116,32 +116,34 @@ export default function RunTab({ module, allModules }: Props) {
   return (
     <div className="run">
       <div className="run-bar">
-        <button className="btn primary" onClick={run} disabled={running || !canRun()}>
-          {running ? <Loader2 size={15} className="spin" /> : <Play size={15} />} Run
-        </button>
-        <label className="env-pick">
-          env:
-          <select
-            value={envStore.active}
-            onChange={(e) => {
-              const next = { ...envStore, active: e.target.value };
-              setEnvStore(next);
-              saveEnvStore(next);
-            }}
-          >
-            <option value="">(none)</option>
-            {envStore.environments.map((env) => (
-              <option key={env.name} value={env.name}>
-                {env.name}
-              </option>
-            ))}
-          </select>
-        </label>
         {status && <span className="muted">{status}</span>}
         {!status && requirements.length > 0 && (
           <span className="muted">requires: {requirements.join(", ")}</span>
         )}
         {!canRun() && <span className="muted">Execution requires the desktop app.</span>}
+        <div className="run-bar-right">
+          <label className="env-pick">
+            env:
+            <select
+              value={envStore.active}
+              onChange={(e) => {
+                const next = { ...envStore, active: e.target.value };
+                setEnvStore(next);
+                saveEnvStore(next);
+              }}
+            >
+              <option value="">(none)</option>
+              {envStore.environments.map((env) => (
+                <option key={env.name} value={env.name}>
+                  {env.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="btn primary" onClick={run} disabled={running || !canRun()}>
+            {running ? <Loader2 size={15} className="spin" /> : <Play size={15} />} Run
+          </button>
+        </div>
       </div>
 
       <div className="run-body">

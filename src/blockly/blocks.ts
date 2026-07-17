@@ -14,6 +14,7 @@ import type { Module } from "../types/module";
 import { portIdent, normalizeFolder } from "../types/module";
 import { registerCodeField } from "./fieldCode";
 import { registerTransformBlock } from "./transformBlock";
+import { registerObjectCreateBlock } from "./objectBlock";
 import { registerClipboardMenus } from "./clipboard";
 import {
   registerLodashBlocks,
@@ -34,6 +35,17 @@ export const HTTP_COLOUR = 195;
 export const XML_COLOUR = 290;
 export const WIDGET_COLOUR = 260;
 
+// Trailing size selector shared by all widget blocks (auto / wide / full width).
+const SIZE_FIELD = {
+  type: "field_dropdown",
+  name: "SIZE",
+  options: [
+    ["auto", ""],
+    ["wide", "wide"],
+    ["full", "full"],
+  ],
+};
+
 let staticRegistered = false;
 
 /** Register blocks that don't depend on module data (env var getter, etc.). */
@@ -43,6 +55,7 @@ function registerStaticBlocks(): void {
 
   registerCodeField();
   registerTransformBlock();
+  registerObjectCreateBlock();
   registerClipboardMenus();
 
   Blockly.common.defineBlocksWithJsonArray([
@@ -243,19 +256,23 @@ function registerStaticBlocks(): void {
         },
         { type: "input_value", name: "URL" },
       ],
-      message1: "headers %1 body %2",
-      args1: [
+      message1: "query params %1",
+      args1: [{ type: "input_value", name: "PARAMS" }],
+      message2: "headers %1 body %2",
+      args2: [
         { type: "input_value", name: "HEADERS" },
         { type: "input_value", name: "BODY" },
       ],
-      message2: "auth %1 verify ssl %2",
-      args2: [
+      message3: "auth %1 verify ssl %2",
+      args3: [
         { type: "input_value", name: "AUTH" },
         { type: "field_checkbox", name: "VERIFY", checked: false },
       ],
       output: null,
       colour: HTTP_COLOUR,
-      tooltip: "Send an HTTP request; returns {status, ok, data, text}",
+      tooltip:
+        "Send an HTTP request; returns {status, ok, data, text}. Query params is " +
+        "an object like {q: 'term', page: 2}.",
     },
     {
       type: "http_basic_auth",
@@ -490,12 +507,14 @@ function registerStaticBlocks(): void {
       tooltip: "Print a labeled value to the run output (log)",
     },
     // --- Dashboard widgets: append a render-spec to the `widgets` list. ---
+    // Each widget ends with a SIZE dropdown (auto / wide / full width).
     {
       type: "widget_table",
-      message0: "table widget %1 rows %2",
+      message0: "table widget %1 rows %2 %3",
       args0: [
         { type: "field_input", name: "TITLE", text: "Table" },
         { type: "input_value", name: "ROWS" },
+        SIZE_FIELD,
       ],
       inputsInline: true,
       previousStatement: null,
@@ -505,10 +524,11 @@ function registerStaticBlocks(): void {
     },
     {
       type: "widget_metric",
-      message0: "metric widget %1 = %2",
+      message0: "metric widget %1 = %2 %3",
       args0: [
         { type: "field_input", name: "TITLE", text: "Metric" },
         { type: "input_value", name: "VALUE" },
+        SIZE_FIELD,
       ],
       inputsInline: true,
       previousStatement: null,
@@ -517,21 +537,129 @@ function registerStaticBlocks(): void {
       tooltip: "Show a single value as a big number on the dashboard",
     },
     {
-      type: "widget_text",
-      message0: "text widget %1 = %2",
+      type: "widget_stat",
+      message0: "stat widget %1 = %2 delta %3 %4",
       args0: [
-        { type: "field_input", name: "TITLE", text: "Text" },
-        { type: "input_value", name: "TEXT" },
+        { type: "field_input", name: "TITLE", text: "Stat" },
+        { type: "input_value", name: "VALUE" },
+        { type: "input_value", name: "DELTA" },
+        SIZE_FIELD,
       ],
       inputsInline: true,
       previousStatement: null,
       nextStatement: null,
       colour: WIDGET_COLOUR,
-      tooltip: "Show a block of text / markdown on the dashboard",
+      tooltip: "A big value with a change indicator (delta > 0 shows green ▲, < 0 red ▼)",
+    },
+    {
+      type: "widget_status",
+      message0: "status widget %1 = %2 %3 %4",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "Status" },
+        { type: "input_value", name: "VALUE" },
+        {
+          type: "field_dropdown",
+          name: "STATUS",
+          options: [
+            ["ok", "ok"],
+            ["warning", "warn"],
+            ["error", "error"],
+            ["info", "info"],
+            ["neutral", "neutral"],
+          ],
+        },
+        SIZE_FIELD,
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Show a value as a colored status badge",
+    },
+    {
+      type: "widget_progress",
+      message0: "progress widget %1 = %2 of %3 %4",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "Progress" },
+        { type: "input_value", name: "VALUE" },
+        { type: "input_value", name: "MAX" },
+        SIZE_FIELD,
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "A progress bar of value / max (percentage)",
+    },
+    {
+      type: "widget_list",
+      message0: "list widget %1 items %2 %3",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "List" },
+        { type: "input_value", name: "ITEMS" },
+        SIZE_FIELD,
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Show an array as a bulleted list",
+    },
+    {
+      type: "widget_text",
+      message0: "text widget %1 = %2 %3",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "Text" },
+        { type: "input_value", name: "TEXT" },
+        SIZE_FIELD,
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "Show a block of text on the dashboard",
+    },
+    {
+      type: "widget_alert",
+      message0: "%1 alert widget %2 = %3 %4",
+      args0: [
+        {
+          type: "field_dropdown",
+          name: "LEVEL",
+          options: [
+            ["info", "info"],
+            ["success", "success"],
+            ["warning", "warning"],
+            ["error", "error"],
+          ],
+        },
+        { type: "field_input", name: "TITLE", text: "Alert" },
+        { type: "input_value", name: "TEXT" },
+        SIZE_FIELD,
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "A colored callout box (info / success / warning / error)",
+    },
+    {
+      type: "widget_link",
+      message0: "link widget %1 url %2 %3",
+      args0: [
+        { type: "field_input", name: "TITLE", text: "Open" },
+        { type: "input_value", name: "URL" },
+        SIZE_FIELD,
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "A button that links to a URL",
     },
     {
       type: "widget_chart",
-      message0: "%1 chart widget %2 data %3",
+      message0: "%1 chart widget %2 data %3 %4",
       args0: [
         {
           type: "field_dropdown",
@@ -545,6 +673,7 @@ function registerStaticBlocks(): void {
         },
         { type: "field_input", name: "TITLE", text: "Chart" },
         { type: "input_value", name: "DATA" },
+        SIZE_FIELD,
       ],
       inputsInline: true,
       previousStatement: null,
@@ -554,10 +683,11 @@ function registerStaticBlocks(): void {
     },
     {
       type: "widget_json",
-      message0: "json widget %1 = %2",
+      message0: "json widget %1 = %2 %3",
       args0: [
         { type: "field_input", name: "TITLE", text: "JSON" },
         { type: "input_value", name: "VALUE" },
+        SIZE_FIELD,
       ],
       inputsInline: true,
       previousStatement: null,
@@ -567,16 +697,26 @@ function registerStaticBlocks(): void {
     },
     {
       type: "widget_html",
-      message0: "html widget %1 = %2",
+      message0: "html widget %1 = %2 %3",
       args0: [
         { type: "field_input", name: "TITLE", text: "HTML" },
         { type: "input_value", name: "HTML" },
+        SIZE_FIELD,
       ],
       inputsInline: true,
       previousStatement: null,
       nextStatement: null,
       colour: WIDGET_COLOUR,
       tooltip: "Render an HTML string on the dashboard",
+    },
+    {
+      type: "widget_section",
+      message0: "section header %1",
+      args0: [{ type: "field_input", name: "TITLE", text: "Section" }],
+      previousStatement: null,
+      nextStatement: null,
+      colour: WIDGET_COLOUR,
+      tooltip: "A full-width section header to group widgets below it",
     },
   ]);
 
@@ -768,7 +908,7 @@ function registerStaticBlocks(): void {
   };
   const httpFn = () =>
     pythonGenerator.provideFunction_("bs_http", [
-      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(method, url, headers=None, body=None, auth=None, verify=False):`,
+      `def ${pythonGenerator.FUNCTION_NAME_PLACEHOLDER_}(method, url, headers=None, body=None, auth=None, verify=False, params=None):`,
       "    import requests",
       "    if not verify:",
       "        try:",
@@ -779,6 +919,8 @@ function registerStaticBlocks(): void {
       "    kw = {'timeout': 30, 'verify': verify}",
       "    if headers:",
       "        kw['headers'] = headers",
+      "    if params:",
+      "        kw['params'] = params",
       "    if auth:",
       "        kw['auth'] = tuple(auth) if isinstance(auth, (list, tuple)) else auth",
       "    if body is not None:",
@@ -801,8 +943,9 @@ function registerStaticBlocks(): void {
     const body = pythonGenerator.valueToCode(block, "BODY", Order.NONE) || "None";
     const auth = pythonGenerator.valueToCode(block, "AUTH", Order.NONE) || "None";
     const verify = block.getFieldValue("VERIFY") === "TRUE" ? "True" : "False";
+    const params = pythonGenerator.valueToCode(block, "PARAMS", Order.NONE) || "None";
     return [
-      `${fn}(${JSON.stringify(method)}, ${url}, ${headers}, ${body}, ${auth}, ${verify})`,
+      `${fn}(${JSON.stringify(method)}, ${url}, ${headers}, ${body}, ${auth}, ${verify}, ${params})`,
       Order.FUNCTION_CALL,
     ];
   };
@@ -831,31 +974,55 @@ function registerStaticBlocks(): void {
   // (Dashboard-kind modules seed `widgets = []`; see codegen.ts.)
   const widgetTitle = (block: Blockly.Block) =>
     JSON.stringify(block.getFieldValue("TITLE") || "");
-  pythonGenerator.forBlock["widget_table"] = (block) => {
-    const rows = pythonGenerator.valueToCode(block, "ROWS", Order.NONE) || "[]";
-    return `widgets.append({"type": "table", "title": ${widgetTitle(block)}, "rows": ${rows}})\n`;
-  };
-  pythonGenerator.forBlock["widget_metric"] = (block) => {
-    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
-    return `widgets.append({"type": "metric", "title": ${widgetTitle(block)}, "value": ${value}})\n`;
-  };
-  pythonGenerator.forBlock["widget_text"] = (block) => {
-    const text = pythonGenerator.valueToCode(block, "TEXT", Order.NONE) || "''";
-    return `widgets.append({"type": "text", "title": ${widgetTitle(block)}, "text": ${text}})\n`;
-  };
-  pythonGenerator.forBlock["widget_chart"] = (block) => {
-    const data = pythonGenerator.valueToCode(block, "DATA", Order.NONE) || "[]";
-    const chart = JSON.stringify(block.getFieldValue("CHART") || "bar");
-    return `widgets.append({"type": "chart", "chart": ${chart}, "title": ${widgetTitle(block)}, "data": ${data}})\n`;
-  };
-  pythonGenerator.forBlock["widget_json"] = (block) => {
-    const value = pythonGenerator.valueToCode(block, "VALUE", Order.NONE) || "None";
-    return `widgets.append({"type": "json", "title": ${widgetTitle(block)}, "value": ${value}})\n`;
-  };
-  pythonGenerator.forBlock["widget_html"] = (block) => {
-    const html = pythonGenerator.valueToCode(block, "HTML", Order.NONE) || "''";
-    return `widgets.append({"type": "html", "title": ${widgetTitle(block)}, "html": ${html}})\n`;
-  };
+  const wSize = (block: Blockly.Block) =>
+    JSON.stringify(block.getFieldValue("SIZE") || "");
+  const wVal = (block: Blockly.Block, name: string, def = "None") =>
+    pythonGenerator.valueToCode(block, name, Order.NONE) || def;
+  // Emit a widgets.append({...}) with a common size field.
+  const widget = (block: Blockly.Block, fields: string) =>
+    `widgets.append({${fields}, "size": ${wSize(block)}})\n`;
+
+  pythonGenerator.forBlock["widget_table"] = (block) =>
+    widget(block, `"type": "table", "title": ${widgetTitle(block)}, "rows": ${wVal(block, "ROWS", "[]")}`);
+  pythonGenerator.forBlock["widget_metric"] = (block) =>
+    widget(block, `"type": "metric", "title": ${widgetTitle(block)}, "value": ${wVal(block, "VALUE")}`);
+  pythonGenerator.forBlock["widget_stat"] = (block) =>
+    widget(
+      block,
+      `"type": "stat", "title": ${widgetTitle(block)}, "value": ${wVal(block, "VALUE")}, "delta": ${wVal(block, "DELTA")}`
+    );
+  pythonGenerator.forBlock["widget_status"] = (block) =>
+    widget(
+      block,
+      `"type": "status", "title": ${widgetTitle(block)}, "value": ${wVal(block, "VALUE", "''")}, "status": ${JSON.stringify(block.getFieldValue("STATUS") || "neutral")}`
+    );
+  pythonGenerator.forBlock["widget_progress"] = (block) =>
+    widget(
+      block,
+      `"type": "progress", "title": ${widgetTitle(block)}, "value": ${wVal(block, "VALUE", "0")}, "max": ${wVal(block, "MAX", "100")}`
+    );
+  pythonGenerator.forBlock["widget_list"] = (block) =>
+    widget(block, `"type": "list", "title": ${widgetTitle(block)}, "items": ${wVal(block, "ITEMS", "[]")}`);
+  pythonGenerator.forBlock["widget_text"] = (block) =>
+    widget(block, `"type": "text", "title": ${widgetTitle(block)}, "text": ${wVal(block, "TEXT", "''")}`);
+  pythonGenerator.forBlock["widget_alert"] = (block) =>
+    widget(
+      block,
+      `"type": "alert", "level": ${JSON.stringify(block.getFieldValue("LEVEL") || "info")}, "title": ${widgetTitle(block)}, "text": ${wVal(block, "TEXT", "''")}`
+    );
+  pythonGenerator.forBlock["widget_link"] = (block) =>
+    widget(block, `"type": "link", "title": ${widgetTitle(block)}, "url": ${wVal(block, "URL", "''")}`);
+  pythonGenerator.forBlock["widget_chart"] = (block) =>
+    widget(
+      block,
+      `"type": "chart", "chart": ${JSON.stringify(block.getFieldValue("CHART") || "bar")}, "title": ${widgetTitle(block)}, "data": ${wVal(block, "DATA", "[]")}`
+    );
+  pythonGenerator.forBlock["widget_json"] = (block) =>
+    widget(block, `"type": "json", "title": ${widgetTitle(block)}, "value": ${wVal(block, "VALUE")}`);
+  pythonGenerator.forBlock["widget_html"] = (block) =>
+    widget(block, `"type": "html", "title": ${widgetTitle(block)}, "html": ${wVal(block, "HTML", "''")}`);
+  pythonGenerator.forBlock["widget_section"] = (block) =>
+    `widgets.append({"type": "section", "title": ${widgetTitle(block)}, "size": "full"})\n`;
 
   // XML / HTML by XPath selector (lxml). Handles both XML and HTML.
   const xmlRootFn = () =>
@@ -1162,10 +1329,35 @@ export function buildToolbox(current: Module, all: Module[]): object {
         inputs: { ROWS: { shadow: { type: "object_empty" } } },
       },
       { kind: "block", type: "widget_metric" },
+      { kind: "block", type: "widget_stat" },
+      {
+        kind: "block",
+        type: "widget_status",
+        inputs: { VALUE: { shadow: { type: "text", fields: { TEXT: "OK" } } } },
+      },
+      {
+        kind: "block",
+        type: "widget_progress",
+        inputs: {
+          VALUE: { shadow: { type: "math_number", fields: { NUM: 30 } } },
+          MAX: { shadow: { type: "math_number", fields: { NUM: 100 } } },
+        },
+      },
+      { kind: "block", type: "widget_list" },
       {
         kind: "block",
         type: "widget_text",
         inputs: { TEXT: { shadow: { type: "text", fields: { TEXT: "" } } } },
+      },
+      {
+        kind: "block",
+        type: "widget_alert",
+        inputs: { TEXT: { shadow: { type: "text", fields: { TEXT: "Heads up" } } } },
+      },
+      {
+        kind: "block",
+        type: "widget_link",
+        inputs: { URL: { shadow: { type: "text", fields: { TEXT: "https://example.com" } } } },
       },
       { kind: "block", type: "widget_chart" },
       { kind: "block", type: "widget_json" },
@@ -1174,6 +1366,7 @@ export function buildToolbox(current: Module, all: Module[]): object {
         type: "widget_html",
         inputs: { HTML: { shadow: { type: "text", fields: { TEXT: "<b>hello</b>" } } } },
       },
+      { kind: "block", type: "widget_section" },
     ],
   };
 
@@ -1261,6 +1454,7 @@ export function buildToolbox(current: Module, all: Module[]): object {
         name: "Objects",
         colour: String(OBJ_COLOUR),
         contents: [
+          { kind: "block", type: "object_create" },
           { kind: "block", type: "object_transform" },
           { kind: "block", type: "object_empty" },
           { kind: "block", type: "object_keys" },

@@ -1,7 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import AppShell from "./AppShell";
+import DashboardView from "./pages/DashboardView";
 import "./index.css";
+
+// Standalone dashboard route: #/dashboard/<id> renders just the dashboard.
+function Root() {
+  const m = window.location.hash.match(/^#\/dashboard\/(.+)$/);
+  if (m) return <DashboardView moduleId={decodeURIComponent(m[1])} />;
+  return <AppShell />;
+}
 
 // Disable browser autofill / autosuggest / spellcheck on text inputs. A single
 // `focusin` listener hardens each field the first time it's focused — this is
@@ -24,6 +32,6 @@ document.addEventListener(
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <AppShell />
+    <Root />
   </React.StrictMode>
 );

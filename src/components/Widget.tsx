@@ -18,14 +18,37 @@ import {
 
 /** A render-spec emitted by a dashboard flow's widget blocks. */
 export interface WidgetSpec {
-  type: "table" | "metric" | "text" | "chart" | "json" | "html";
+  type:
+    | "table"
+    | "metric"
+    | "stat"
+    | "status"
+    | "progress"
+    | "list"
+    | "text"
+    | "alert"
+    | "link"
+    | "chart"
+    | "json"
+    | "html"
+    | "section";
   title?: string;
+  /** "" (auto) | "wide" (2 cols) | "full" (all cols). */
+  size?: string;
   // table
   rows?: unknown;
-  // metric
+  // metric / stat / status / progress
   value?: unknown;
-  // text
+  delta?: unknown;
+  status?: string;
+  max?: unknown;
+  // list
+  items?: unknown;
+  // text / alert
   text?: unknown;
+  level?: string;
+  // link
+  url?: unknown;
   // chart
   chart?: "bar" | "line" | "area" | "pie";
   data?: unknown;
@@ -315,13 +338,85 @@ function TableWidget({ rows, title }: { rows: Record<string, unknown>[]; title?:
   );
 }
 
+function num(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isNaN(n) ? 0 : n;
+}
+
 export default function Widget({ spec }: { spec: WidgetSpec }) {
   const title = spec.title || "";
+  const sizeClass = spec.size === "wide" || spec.size === "full" ? ` size-${spec.size}` : "";
+
+  // Section header is a full-width divider, not a card.
+  if (spec.type === "section") {
+    return <div className="widget-section size-full">{title}</div>;
+  }
 
   let body: ReactNode;
   switch (spec.type) {
     case "metric":
       body = <div className="w-metric">{cell(spec.value)}</div>;
+      break;
+    case "stat": {
+      const d = num(spec.delta);
+      const cls = d > 0 ? "up" : d < 0 ? "down" : "flat";
+      const arrow = d > 0 ? "▲" : d < 0 ? "▼" : "→";
+      body = (
+        <div className="w-stat">
+          <div className="w-metric">{cell(spec.value)}</div>
+          {spec.delta != null && spec.delta !== "" && (
+            <div className={`w-delta ${cls}`}>
+              {arrow} {cell(spec.delta)}
+            </div>
+          )}
+        </div>
+      );
+      break;
+    }
+    case "status": {
+      const s = spec.status || "neutral";
+      body = <span className={`w-badge badge-${s}`}>{cell(spec.value)}</span>;
+      break;
+    }
+    case "progress": {
+      const max = num(spec.max) || 100;
+      const val = num(spec.value);
+      const pct = Math.max(0, Math.min(100, (val / max) * 100));
+      body = (
+        <div className="w-progress">
+          <div className="w-progress-bar">
+            <div className="w-progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="w-progress-label muted">
+            {cell(spec.value)} / {cell(spec.max ?? 100)} ({Math.round(pct)}%)
+          </div>
+        </div>
+      );
+      break;
+    }
+    case "list": {
+      const items = coerceJson(spec.items);
+      const arr = Array.isArray(items) ? items : [];
+      body = arr.length ? (
+        <ul className="w-list">
+          {arr.map((it, i) => (
+            <li key={i}>{cell(it)}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">No items.</p>
+      );
+      break;
+    }
+    case "alert":
+      body = <div className={`w-alert alert-${spec.level || "info"}`}>{cell(spec.text)}</div>;
+      break;
+    case "link":
+      body = (
+        <a className="w-link" href={cell(spec.url)} target="_blank" rel="noreferrer noopener">
+          {title || "Open"} ↗
+        </a>
+      );
       break;
     case "text":
       body = <div className="w-text">{cell(spec.text)}</div>;
@@ -366,9 +461,10 @@ export default function Widget({ spec }: { spec: WidgetSpec }) {
     }
   }
 
+  const showTitle = title && spec.type !== "link";
   return (
-    <div className={`widget widget-${spec.type}`}>
-      {title && <div className="widget-title">{title}</div>}
+    <div className={`widget widget-${spec.type}${sizeClass}`}>
+      {showTitle && <div className="widget-title">{title}</div>}
       <div className="widget-body">{body}</div>
     </div>
   );

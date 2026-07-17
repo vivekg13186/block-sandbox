@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, Loader2, AlertTriangle } from "lucide-react";
+import { RefreshCw, Loader2, AlertTriangle, ExternalLink } from "lucide-react";
 import type { Module } from "../types/module";
 import { generateProgram, collectRequirements } from "../blockly/codegen";
 import { canRun, runPython, ensurePackages } from "../runtime/python";
@@ -11,6 +11,8 @@ interface Props {
   allModules: Module[];
   /** Only auto-refresh while the editor tab is active. */
   active?: boolean;
+  /** True when rendered as the full-page view (hides "open in new tab"). */
+  standalone?: boolean;
 }
 
 const INTERVALS: { label: string; ms: number }[] = [
@@ -21,7 +23,13 @@ const INTERVALS: { label: string; ms: number }[] = [
   { label: "5m", ms: 300_000 },
 ];
 
-export default function DashboardTab({ module, allModules, active = true }: Props) {
+export default function DashboardTab({ module, allModules, active = true, standalone }: Props) {
+  const openExternal = () =>
+    window.open(
+      `${location.origin}${location.pathname}#/dashboard/${encodeURIComponent(module.id)}`,
+      "_blank",
+      "noopener"
+    );
   const [widgets, setWidgets] = useState<WidgetSpec[]>([]);
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState("");
@@ -144,6 +152,11 @@ export default function DashboardTab({ module, allModules, active = true }: Prop
           <span className="muted">updated {ranAt.toLocaleTimeString()}</span>
         )}
         {!canRun() && <span className="muted">Execution requires the desktop app.</span>}
+        {!standalone && (
+          <button className="btn dash-open-btn" onClick={openExternal} title="Open in a new browser tab">
+            <ExternalLink size={14} /> Open in tab
+          </button>
+        )}
       </div>
 
       <div className="dash-body">

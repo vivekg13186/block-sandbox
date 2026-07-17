@@ -92,6 +92,9 @@ Variables, Functions), Block Sandbox adds:
 Right-click a block for a **shared clipboard** (copy/paste blocks across
 different diagrams). The Diagram toolbar can also export the blocks as a PNG.
 
+See **[docs/BLOCKS.md](docs/BLOCKS.md)** for a full guide to the custom blocks
+and how to use them.
+
 ## Scheduling
 
 Schedules run **server-side**: a background thread fires due cron jobs while the
